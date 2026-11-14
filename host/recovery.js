@@ -12,6 +12,11 @@
   const enabledBox = document.getElementById('recovery-enabled');
   const clipboardStatus = document.getElementById('paste-image-status');
   const frame = document.getElementById('editor');
+  if (window.PHOTOCRAFT_RECOVERY_SUPPORTED === false) {
+    enabledBox.disabled = true;
+    status.textContent = 'Recovery is not available in this app build yet.';
+    return;
+  }
   let enabled = true;
   try {enabled = localStorage.getItem('photocraft.recovery.enabled') !== 'false';} catch { /* IndexedDB may still work. */ }
   enabledBox.checked = enabled;

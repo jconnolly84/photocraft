@@ -70,7 +70,8 @@ if custom_metadata.exists():
     # fixed parts.txt and glue URLs on demand, so never reuse those URLs across builds.
     shutil.copytree(target, site / build_path)
     editor_path = f'./{build_path}/'
-(site / 'build-config.js').write_text('window.PHOTOCRAFT_EDITOR_PATH = ' + json.dumps(editor_path) + ';\n', encoding='utf-8')
+recovery_supported = custom_metadata.exists() and 'local_recovery' in metadata.get('features', [])
+(site / 'build-config.js').write_text('window.PHOTOCRAFT_EDITOR_PATH = ' + json.dumps(editor_path) + ';\nwindow.PHOTOCRAFT_RECOVERY_SUPPORTED = ' + json.dumps(recovery_supported) + ';\n', encoding='utf-8')
 index = site / 'index.html'
 html = index.read_text(encoding='utf-8')
 for script in site.glob('*.js'):

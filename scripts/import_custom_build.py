@@ -1,6 +1,7 @@
 """Activate a reviewed CI build without overwriting the preserved official release."""
 from pathlib import Path
 import hashlib
+import gzip
 import json
 import sys
 import shutil
@@ -37,10 +38,16 @@ with zipfile.ZipFile(archive) as bundle:
         output.write_bytes(data)
         files[relative] = hashlib.sha256(data).hexdigest()
 assert 'app/parts.txt' in files and 'index.html' in files
+parts = (destination / 'app/parts.txt').read_text().splitlines()[1:]
+wasm = gzip.decompress(b''.join((destination / 'app' / name.strip()).read_bytes() for name in parts if name.strip()))
+features = ['font_categories']
+if b'photocraftRecoverySave' in wasm:
+    features.extend(['local_recovery', 'clipboard_export', 'background_menu'])
 metadata = {
     'upstream_version': 'v0.23.1', 'upstream_commit': '45066c48292e92229ada3459a83453439514c83d',
     'workflow_run': run_id, 'archive_sha256': hashlib.sha256(archive.read_bytes()).hexdigest(),
     'patch': 'scripts/patch_photocraft_source.py', 'files': files,
+    'features': features,
     'font_catalog_sha256': hashlib.sha256(json.dumps(json.loads((root / 'host/font-catalog.json').read_text(encoding='utf-8')), sort_keys=True, separators=(',', ':')).encode()).hexdigest(),
 }
 (root / 'custom-build/BUILD.json').write_text(json.dumps(metadata, indent=2) + '\n', encoding='utf-8')
