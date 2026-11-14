@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'photocraft/**'
+      - 'host/**'
       - 'scripts/prepare_photocraft.py'
       - '.github/workflows/photocraft-pages.yml'
   workflow_dispatch:

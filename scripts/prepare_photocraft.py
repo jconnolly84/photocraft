@@ -27,13 +27,7 @@ for original in source.rglob('*'):
         assert hashlib.sha256(original.read_bytes()).digest() == hashlib.sha256(copied.read_bytes()).digest()
 site = target.parent
 (site / '.nojekyll').touch()
-(site / 'index.html').write_text(
-    '<!doctype html><html lang="en"><meta charset="utf-8">'
-    '<title>PhotoCraft</title><h1>PhotoCraft</h1>'
-    '<p><a href="./photocraft/">Open PhotoCraft image editor</a></p>'
-    '<p>PhotoCraft by the ArtCraft Team and contributors. '
-    'Image editing runs in your browser; this site provides no document storage.</p>'
-    '<p><a href="./photocraft/NOTICE">Notices</a> · '
-    '<a href="https://github.com/storytold/photocraft">Official project</a></p></html>',
-    encoding='utf-8')
+for asset in (root / 'host').iterdir():
+    if asset.is_file():
+        shutil.copyfile(asset, site / asset.name)
 print('Verified all release bytes and staged PhotoCraft at /photocraft/.')
