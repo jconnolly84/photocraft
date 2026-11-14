@@ -34,9 +34,14 @@ function paste(items) {
   assert.equal(deliveries[0].clientX, 500);
   assert.equal(paste([{kind: 'string', type: 'text/plain'}]).prevented, undefined);
   assert.equal(paste([]).prevented, undefined);
+  clipboardEvents.keydown({ctrlKey: true, key: 'c'});
+  assert.equal(paste([{kind: 'file', type: 'image/png', getAsFile: () => image}]).prevented, undefined,
+    'Preserve PhotoCraft internal copy/paste without substituting an old system image');
+  clipboardEvents.blur();
+  assert.equal(paste([{kind: 'file', type: 'image/png', getAsFile: () => image}]).prevented, true);
   await buttonEvents.click();
-  assert.equal(deliveries.length, 2);
-  assert.equal(deliveries[1].dataTransfer.files[0].type, 'image/png');
+  assert.equal(deliveries.length, 3);
+  assert.equal(deliveries[2].dataTransfer.files[0].type, 'image/png');
   clipboard.read = async () => {const error = new Error(); error.name = 'NotAllowedError'; throw error;};
   await buttonEvents.click();
   assert.match(status.textContent, /blocked/);

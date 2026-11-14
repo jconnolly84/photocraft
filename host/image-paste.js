@@ -22,7 +22,18 @@
     status.textContent = 'Image sent to the editor.';
   }
   frame.addEventListener('load', () => {
-    frame.contentWindow.addEventListener('paste', event => {
+    const win = frame.contentWindow;
+    let preferInternalClipboard = false;
+    // PhotoCraft's editable layer clipboard may not be exported to the browser.
+    // Keep a copy/paste made wholly inside the editor on its native path.
+    win.addEventListener('keydown', event => {
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && ['c', 'x'].includes(event.key.toLowerCase())) {
+        preferInternalClipboard = true;
+      }
+    }, {capture: true});
+    win.addEventListener('blur', () => {preferInternalClipboard = false;});
+    win.addEventListener('paste', event => {
+      if (preferInternalClipboard) return;
       const files = Array.from(event.clipboardData?.items || [])
         .filter(item => item.kind === 'file' && supported(item.type))
         .map(item => item.getAsFile()).filter(Boolean);

@@ -33,3 +33,21 @@ PhotoCraft test suite. The WebAssembly build checks the complete app integration
 After a successful build and review, stage its entire archive as the host's
 custom build. Keep the original release for rollback. Do not mix glue, boot
 modules and app parts across builds.
+
+## Published and verified
+
+Build workflow `43641177593` succeeded, including upstream packaging and source
+layer checks. Its full archive is preserved under `custom-build/web`, with hashes
+and source details in `custom-build/BUILD.json`, and the exact diff in
+`custom-build/source.patch`. The original release is still under `photocraft/`.
+
+The served app lives at a per-build URL (`build-43641177593/`) and the wrapper
+selects it through a fingerprinted config script. This prevents Pages' fixed
+10-minute cache from mixing old manifests/glue with new app parts. Every host
+script is also fingerprinted. A changed font catalog requires a fresh custom
+build; deployment checks its normalized-content hash before publishing.
+
+Live browser checks confirmed the built-in Serif and Decorative categories
+list their correct fonts before download, including the new DaFont families.
+The focused Rust harness passed all three tests (every hosted classification,
+actual menu filter results, and preservation of loaded font traits).
