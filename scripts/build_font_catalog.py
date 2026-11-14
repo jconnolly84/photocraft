@@ -14,6 +14,10 @@ GROUPS = {
 }
 catalog = [{'family': family, 'category': category}
            for category, names in GROUPS.items() for family in names.split('|')]
+extra = ROOT / 'font-library/DAFONT-SOURCES.json'
+if extra.exists():
+    for source in json.loads(extra.read_text(encoding='utf-8')):
+        catalog.extend({'family': family, 'category': source['category']} for family in source['families'])
 families = {line.split('|')[0].strip() for line in (ROOT / 'font-library/fonts/manifest.txt').read_text(encoding='utf-8').splitlines()
             if line.strip() and not line.startswith('#')}
 assert len(catalog) == len({font['family'] for font in catalog}), 'Duplicate catalog family'

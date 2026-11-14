@@ -1,6 +1,6 @@
 # Fonts for the PhotoCraft web host
 
-56 families / 97 font files, approximately 30.6 MB in total. Fonts load on demand
+66 families / 111 font files. Fonts load on demand
 through PhotoCraft's supported `fonts/manifest.txt`; they are not added to Wasm.
 Every family retains its licence beside its files. No proprietary Windows fonts
 are included. Font names are the fonts' real internal names, not Microsoft aliases.
@@ -38,6 +38,21 @@ Variable fonts offer weight choices through their weight axis. Character coverag
 varies: this is primarily a Latin design catalog, not complete worldwide coverage.
 
 ## Provenance and maintenance
+
+### Decorative fonts from DaFont
+
+Added Star Minor, Speed Freak, Help Me, Blackcraft, Neon Sans, Glitch Goblin,
+Drybrush, Bad Comic, Bubblez Graffiti and Westhorn (14 faces across 10 families).
+Speed Freak is by Tup Wanders; the other nine are by GGBotNet. These downloads
+include explicit SIL OFL or CC0 licence texts, retained unmodified beside the
+font files. `DAFONT-SOURCES.json` records each listing/download URL, archive hash,
+font hashes, licence hash and category. `dafont-manifest.txt` retains their manifest
+entries. Fonts marked only "free for personal use" were not selected.
+
+Run `python scripts/import_dafont_fonts.py` to reimport these selections. Unlike
+the pinned GitHub catalogs, DaFont download URLs may change their contents;
+review archive/hash changes before publishing an update. The main font importer
+preserves these additional entries when rebuilding its base catalog.
 
 Font files come from the official `storytold/craft-fonts` Latin catalog and
 `google/fonts`, at pinned commits recorded in `SOURCES.json`. Craft catalog

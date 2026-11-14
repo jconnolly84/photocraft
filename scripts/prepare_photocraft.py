@@ -36,7 +36,7 @@ for line in (font_library / 'fonts' / 'manifest.txt').read_text(encoding='utf-8'
     for rel in (path, license_path):
         assert rel.startswith('fonts/') and '..' not in Path(rel).parts
         assert (font_library / rel).is_file(), f'Missing font asset: {rel}'
-    assert license_id in ('OFL-1.1', 'Apache-2.0')
+    assert license_id in ('OFL-1.1', 'Apache-2.0', 'CC0-1.0')
     assert hashlib.sha256((font_library / path).read_bytes()).hexdigest() == expected, path
     families.add(family)
 shutil.copytree(font_library / 'fonts', target / 'fonts')
