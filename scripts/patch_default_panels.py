@@ -7,6 +7,7 @@ def replace(path, before, after):
     assert text.count(before) == 1, f'Upstream changed: {path}: {before[:60]}'
     path.write_text(text.replace(before, after), encoding='utf-8', newline='\n')
 replace(source / 'crates/ui-egui/src/menus/invoke.rs', '        _ => (false, true, true, false, true),', '        _ => (false, false, true, true, false),')
+replace(source / 'crates/ui-egui/src/state.rs', '            layers: true,\n            history: false,\n            properties: true,\n            color: true,', '            layers: true,\n            history: true,\n            properties: false,\n            color: false,')
 web = source / 'apps/photocraft-web/src/web.rs'
 replace(web, '                    if !preset_warnings.is_empty() {', '                    initialize_default_panels(&mut app);\n                    if !preset_warnings.is_empty() {')
 with web.open('a', encoding='utf-8', newline='\n') as file:
