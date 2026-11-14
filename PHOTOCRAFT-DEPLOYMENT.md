@@ -78,6 +78,24 @@ A separate host integration could offer JavaScript fullscreen plus Chrome's
 Keyboard Lock API with user permission. F11 alone does not activate keyboard lock.
 The unmodified release here does not add that integration.
 
+### Browser shortcut wrapper
+
+Use https://jconnolly84.github.io/photocraft/ for the integrated editor.
+The root page now embeds the unchanged release using a same-origin iframe and
+installs `host/shortcuts.js` in its window. It cancels browser defaults for common
+editor commands while allowing the original events to reach PhotoCraft.
+Ctrl+Alt+T is forwarded as Ctrl+T (Free Transform); Ctrl+Alt+Shift+T as
+Ctrl+Shift+T (Transform Again). Input fields, composition, AltGraph, and clipboard
+shortcuts are left alone. Browser-reserved Ctrl+T/W/N/L are not overridden.
+The direct `/photocraft/photocraft/` release URL bypasses this wrapper.
+
+Verified in the live browser on 2026-11-14: Ctrl+D removed a drawn marquee
+selection; Ctrl+J duplicated the background layer; Ctrl+Alt+T then activated
+Free Transform, showing its bounding handles and transform controls.
+`node scripts/test_shortcuts.cjs` checks routing, paired keyup, typing/clipboard
+exclusions and renderer query forwarding. Other intercepted combinations have
+not all been exercised end to end. No release asset was modified.
+
 References:
 - https://support.google.com/chrome/answer/157179?hl=en
 - https://developer.chrome.com/docs/capabilities/web-apis/keyboard-lock
