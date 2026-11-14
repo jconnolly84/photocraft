@@ -1,0 +1,55 @@
+name: Build custom PhotoCraft font categories
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      CARGO_BUILD_JOBS: '2'
+      CARGO_INCREMENTAL: '0'
+      PHOTOCRAFT_BUILD_SHA: 45066c48292e92229ada3459a83453439514c83d-font-categories
+      PHOTOCRAFT_BUILD_DATE: '2026-11-14'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out official v0.23.1 source
+        uses: actions/checkout@v4
+        with:
+          repository: storytold/photocraft
+          ref: 45066c48292e92229ada3459a83453439514c83d
+          path: upstream
+          persist-credentials: false
+      - name: Apply reviewed font category patch
+        run: python scripts/patch_photocraft_source.py upstream
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: upstream
+          key: photocraft-custom-web
+      - name: Install upstream packaging tools
+        uses: storytold/craft-common-actions/actions/install-trunk@main
+        with:
+          trunk-version: '0.21.14'
+      - name: Load pinned translations
+        run: cp upstream/craft-i18n.rev craft-i18n.rev
+      - name: Check out pinned translations
+        uses: storytold/craft-common-actions/actions/checkout-craft-i18n@main
+      - name: Build and package using upstream script
+        working-directory: upstream
+        run: packaging/web/package.sh
+      - name: Check source layer boundaries
+        working-directory: upstream
+        run: cargo xtask layers
+      - uses: actions/upload-artifact@v4
+        with:
+          name: photocraft-custom-web
+          path: upstream/dist/release/photocraft-web-0.23.1.zip
+          if-no-files-found: error
+          retention-days: 30
