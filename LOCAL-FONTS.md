@@ -1,7 +1,7 @@
 # Fonts installed on this PC
 
 Open https://jconnolly84.github.io/photocraft/, expand **PC fonts** in the
-bottom-right corner, and choose **Use fonts from this PC**. Save/export first:
+top of the page (**Fonts & import**), and choose **Use fonts from this PC**. Save/export first:
 enabling, refreshing or disabling the local font list restarts the editor.
 Confirm the restart, then allow the browser's local font permission prompt.
 The installed families and styles join the type tool's font menu. Matching

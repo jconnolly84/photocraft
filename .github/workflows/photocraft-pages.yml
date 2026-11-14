@@ -33,7 +33,9 @@ jobs:
         with:
           python-version: '3.x'
       - name: Prepare static site without changing release files
-        run: python scripts/prepare_photocraft.py
+        run: |
+          python scripts/build_font_catalog.py
+          python scripts/prepare_photocraft.py
       - name: Check browser integrations
         run: |
           node scripts/test_shortcuts.cjs

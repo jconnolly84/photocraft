@@ -15,29 +15,49 @@
     button:focus-visible { outline: 2px solid #9bceff; outline-offset: 2px; }
     a { color: #9bceff; }
     iframe { border: 0; width: 100%; flex: 1; min-height: 0; }
-    #font-tools { position: fixed; right: 12px; bottom: 24px; z-index: 10; background: #252525; border: 1px solid #666; border-radius: 5px; }
-    #font-tools summary { padding: 5px 10px; cursor: pointer; }
-    #font-tools[open] { width: 300px; padding: 8px; box-shadow: 0 3px 15px #0008; }
+    #host-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 5px 12px; border-bottom: 1px solid #444; }
+    #font-tools { background: #252525; border: 1px solid #777; border-radius: 5px; }
+    #font-tools summary { padding: 5px 10px; cursor: pointer; color: #b9ddff; font-weight: 600; }
+    #font-tools[open] { position: absolute; top: 40px; right: 12px; z-index: 10; width: min(460px, calc(100vw - 48px)); max-height: 75vh; overflow: auto; padding: 12px; box-shadow: 0 3px 15px #0008; }
     #font-tools p { line-height: 1.4; }
+    #font-tools label { display: block; margin: 10px 0; }
+    #font-tools select, #font-tools input { box-sizing: border-box; width: 100%; padding: 6px; margin-top: 4px; background: #383838; color: #eee; border: 1px solid #777; }
+    #font-list { list-style: none; padding: 0; max-height: 240px; overflow: auto; }
+    #font-list li { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; gap: 8px; border-bottom: 1px solid #444; }
+    #font-list small { display: block; color: #bbb; }
   </style>
   <script src="./shortcuts.js" defer></script>
   <script src="./banner.js" defer></script>
   <script src="./local-fonts.js" defer></script>
+  <script src="./font-browser.js" defer></script>
+  <script src="./fullscreen.js" defer></script>
 </head>
 <body>
   <header id="shortcut-banner"><span>Browser shortcuts: Ctrl+D deselect · Ctrl+Alt+T transform ·
     <a href="./photocraft/NOTICE" target="_blank" rel="noopener">PhotoCraft credits</a></span>
     <button id="dismiss-banner" type="button" aria-label="Dismiss shortcut message">Got it ×</button>
   </header>
-  <iframe id="editor" title="PhotoCraft image editor"
-    allow="fullscreen; clipboard-read; clipboard-write" allowfullscreen></iframe>
+  <nav id="host-toolbar" aria-label="Editor controls">
   <details id="font-tools">
-    <summary>PC fonts</summary>
+    <summary>Fonts &amp; import</summary>
+    <h2>Fonts from this PC</h2>
     <p>Use fonts installed on this PC. Font names and files stay in this browser session; they are not uploaded.</p>
     <p><strong>Save your work first.</strong> Enabling or disabling PC fonts restarts the editor.</p>
     <button id="enable-local-fonts" type="button">Use fonts from this PC</button>
     <button id="disable-local-fonts" type="button" hidden>Stop using PC fonts</button>
     <p id="local-font-status" role="status" aria-live="polite"></p>
+    <hr>
+    <h2>Browse the font library</h2>
+    <p>Choose a category, copy a font name, then paste it into the Type tool’s font field.</p>
+    <label>Category<select id="font-category"><option>All categories</option></select></label>
+    <label>Search fonts<input id="font-search" type="search" placeholder="Font name"></label>
+    <p id="font-browser-status" role="status" aria-live="polite"></p>
+    <ul id="font-list"></ul>
   </details>
+  <button id="fullscreen-toggle" type="button" aria-pressed="false">Full screen</button>
+  <span id="fullscreen-status" role="status" aria-live="polite"></span>
+  </nav>
+  <iframe id="editor" title="PhotoCraft image editor"
+    allow="fullscreen; clipboard-read; clipboard-write" allowfullscreen></iframe>
 </body>
 </html>
