@@ -11,7 +11,9 @@ if custom_metadata.exists():
     source = root / 'custom-build/web'
     metadata = json.loads(custom_metadata.read_text(encoding='utf-8'))
     expected_files = metadata['files']
-    assert hashlib.sha256((root / 'host/font-catalog.json').read_bytes()).hexdigest() == metadata['font_catalog_sha256'], 'Font catalog changed: rebuild the custom app to update its category hints'
+    catalog = json.loads((root / 'host/font-catalog.json').read_text(encoding='utf-8'))
+    catalog_hash = hashlib.sha256(json.dumps(catalog, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    assert catalog_hash == metadata['font_catalog_sha256'], 'Font catalog changed: rebuild the custom app to update its category hints'
     actual_files = {path.relative_to(source).as_posix() for path in source.rglob('*') if path.is_file()}
     assert actual_files == set(expected_files), 'Custom build file set differs from the reviewed artifact'
     for relative, digest in expected_files.items():
