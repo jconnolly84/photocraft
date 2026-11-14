@@ -48,3 +48,37 @@ To stage locally, run `python scripts/prepare_photocraft.py` in a fresh checkout
 serve `_site` with a static HTTP server. For upgrades, replace the entire
 release folder with a newly checksum-verified official stable release and review
 whether the snippets compatibility copy is still needed.
+
+## Published verification (2026-11-14)
+
+- Repository: https://github.com/jconnolly84/photocraft (public, newly created).
+- Pages source: GitHub Actions; HTTPS enabled.
+- App: https://jconnolly84.github.io/photocraft/photocraft/
+- Workflow run 43637311468 succeeded; the editor home screen rendered in a browser.
+- HTML, boot Wasm, app JavaScript, parts manifest and compatibility snippet returned 200.
+- Wasm: application/wasm; JavaScript: application/javascript.
+- Unknown asset returned 404.
+- Published app part SHA-256 matched the original file; application/octet-stream,
+  no Content-Encoding. Pages returned Cache-Control: max-age=600 on static assets.
+- Opening and exporting an image was not tested.
+
+## Chrome shortcuts on Windows
+
+Chrome has no general site setting to disable all its shortcuts. Click inside the
+editor so it has focus. PhotoCraft can handle some combinations, but browser-reserved
+ones can still win. Use Edit → Keyboard Shortcuts to assign alternatives, or menus.
+Potential conflicts include Ctrl+D (Deselect/bookmark), Ctrl+Shift+D
+(Reselect/bookmark all tabs), Ctrl+T (Free Transform/new tab), Ctrl+Shift+T
+(Transform Again/reopen tab), Ctrl+L (Levels/address bar), Ctrl+U
+(Hue-Saturation/page source), Ctrl+R (Rulers/reload), and Ctrl+O/S/P
+(Open/Save/Print versus browser actions). These are overlapping defaults, not
+a claim that every combination fails in every browser state.
+
+A separate host integration could offer JavaScript fullscreen plus Chrome's
+Keyboard Lock API with user permission. F11 alone does not activate keyboard lock.
+The unmodified release here does not add that integration.
+
+References:
+- https://support.google.com/chrome/answer/157179?hl=en
+- https://developer.chrome.com/docs/capabilities/web-apis/keyboard-lock
+- https://github.com/storytold/photocraft/blob/v0.23.1/crates/ui-egui/src/menu_catalog.rs
