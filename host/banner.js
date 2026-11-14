@@ -1,12 +1,24 @@
 (() => {
-  const banner = document.getElementById('shortcut-banner');
-  const key = 'photocraft.shortcut-banner-dismissed';
-  try {
-    banner.hidden = localStorage.getItem(key) === 'true';
-  } catch { /* Dismissal still works when browser storage is unavailable. */ }
-  document.getElementById('dismiss-banner').addEventListener('click', () => {
-    banner.hidden = true;
-    try { localStorage.setItem(key, 'true'); } catch { /* Session-only dismissal. */ }
-    document.getElementById('editor').focus();
+  const toolbar = document.getElementById('host-toolbar');
+  const show = document.getElementById('show-toolbar');
+  const hide = document.getElementById('hide-toolbar');
+  const key = 'photocraft.toolbar-hidden';
+  const setHidden = (hidden) => {
+    if (hidden) toolbar.querySelectorAll('details').forEach(panel => { panel.open = false; });
+    toolbar.hidden = hidden;
+    show.hidden = !hidden;
+    show.setAttribute('aria-expanded', String(!hidden));
+    hide.setAttribute('aria-expanded', String(!hidden));
+  };
+  try { setHidden(localStorage.getItem(key) === 'true'); } catch { setHidden(false); }
+  hide.addEventListener('click', () => {
+    setHidden(true);
+    try { localStorage.setItem(key, 'true'); } catch { /* Session-only preference. */ }
+    show.focus();
+  });
+  show.addEventListener('click', () => {
+    setHidden(false);
+    try { localStorage.setItem(key, 'false'); } catch { /* Session-only preference. */ }
+    hide.focus();
   });
 })();
