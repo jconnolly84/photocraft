@@ -42,6 +42,10 @@ jobs:
           node scripts/test_shortcuts.cjs
           node scripts/test_local_fonts.cjs
           node scripts/test_image_paste.cjs
+      - name: Check local recovery transactions
+        run: |
+          npm install --prefix "$RUNNER_TEMP/recovery-tests" fake-indexeddb@6.2.8 --no-audit --no-fund
+          node scripts/test_recovery.cjs "$RUNNER_TEMP/recovery-tests/node_modules/fake-indexeddb"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

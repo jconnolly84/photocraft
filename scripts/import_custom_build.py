@@ -3,13 +3,25 @@ from pathlib import Path
 import hashlib
 import json
 import sys
+import shutil
 import zipfile
 
 root = Path(__file__).resolve().parents[1]
 archive = Path(sys.argv[1]).resolve()
 run_id = sys.argv[2]
 destination = root / 'custom-build/web'
-assert not destination.exists(), 'Use a fresh custom build directory; never mix build files'
+assert run_id.isdigit(), 'Unexpected workflow run ID'
+if destination.exists():
+    old_metadata = json.loads((root / 'custom-build/BUILD.json').read_text(encoding='utf-8'))
+    old_run = str(old_metadata['workflow_run'])
+    assert old_run.isdigit() and old_run != run_id, 'Do not overwrite an existing build'
+    backup = root / 'custom-build/previous' / old_run
+    boundary = (root / 'custom-build').resolve()
+    assert destination.resolve().is_relative_to(boundary) and backup.resolve().is_relative_to(boundary)
+    assert not backup.exists(), 'Previous build backup already exists'
+    backup.mkdir(parents=True)
+    shutil.move(str(destination), str(backup / 'web'))
+    shutil.copyfile(root / 'custom-build/BUILD.json', backup / 'BUILD.json')
 prefix = 'photocraft-web-0.23.1/'
 files = {}
 with zipfile.ZipFile(archive) as bundle:

@@ -25,8 +25,12 @@
     #font-list { list-style: none; padding: 0; max-height: 240px; overflow: auto; }
     #font-list li { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; gap: 8px; border-bottom: 1px solid #444; }
     #font-list small { display: block; color: #bbb; }
+    #recovery-tools summary { cursor: pointer; padding: 5px 10px; border: 1px solid #777; border-radius: 5px; }
+    #recovery-tools[open] { position: absolute; z-index: 12; top: 40px; right: 12px; width: min(420px, calc(100vw - 48px)); max-height: 75vh; overflow: auto; padding: 12px; background: #252525; border: 1px solid #777; border-radius: 5px; box-shadow: 0 3px 15px #0008; }
+    #recovery-tools p { line-height: 1.4; }
   </style>
   <script src="./build-config.js" defer></script>
+  <script src="./recovery.js" defer></script>
   <script src="./shortcuts.js" defer></script>
   <script src="./banner.js" defer></script>
   <script src="./local-fonts.js" defer></script>
@@ -42,6 +46,15 @@
   <nav id="host-toolbar" aria-label="Editor controls">
   <button id="paste-image" type="button">Paste image</button>
   <span id="paste-image-status" role="status" aria-live="polite"></span>
+  <details id="recovery-tools">
+    <summary>Recovery</summary>
+    <p><label><input id="recovery-enabled" type="checkbox"> Keep recovery copies on this PC</label></p>
+    <p>Changed documents are saved about every minute. Recovery copies stay in this browser profile, not online.</p>
+    <p>Anyone using this same profile may recover its copies. Private browsing or school profile cleanup can erase them. Keep downloaded .pcraft copies too.</p>
+    <p id="recovery-status" role="status" aria-live="polite">Checking recovery storage…</p>
+    <button id="recovery-keep" type="button">Protect browser storage</button>
+    <button id="recovery-clear" type="button">Clear old recovery copies</button>
+  </details>
   <details id="font-tools">
     <summary>Fonts &amp; import</summary>
     <h2>Fonts from this PC</h2>
