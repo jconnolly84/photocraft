@@ -61,6 +61,20 @@ site = target.parent
 for asset in (root / 'host').iterdir():
     if asset.is_file():
         shutil.copyfile(asset, site / asset.name)
+# Local inference assets are versioned, checksum-verified static files.
+ai = root / 'ai-assets'
+if ai.is_dir():
+    checksums = json.loads((ai / 'SHA256SUMS.json').read_text(encoding='utf-8'))
+    actual = {p.relative_to(ai).as_posix() for p in ai.rglob('*') if p.is_file() and p.name != 'SHA256SUMS.json'}
+    assert actual == set(checksums), 'AI asset set differs from its reviewed manifest'
+    for relative, digest in checksums.items():
+        assert '..' not in Path(relative).parts and not Path(relative).is_absolute()
+        assert hashlib.sha256((ai / relative).read_bytes()).hexdigest() == digest, relative
+    shutil.copytree(ai, site / 'ai')
+worker = site / 'background-worker.js'
+background_host = site / 'background-removal.js'
+if worker.is_file() and background_host.is_file():
+    background_host.write_text(background_host.read_text(encoding='utf-8').replace('__BACKGROUND_WORKER_VERSION__', hashlib.sha256(worker.read_bytes()).hexdigest()[:12]), encoding='utf-8')
 editor_path = './photocraft/'
 if custom_metadata.exists():
     run_id = str(metadata['workflow_run'])

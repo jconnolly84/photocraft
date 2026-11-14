@@ -32,6 +32,10 @@
     #recovery-tools summary { cursor: pointer; padding: 5px 10px; border: 1px solid #777; border-radius: 5px; }
     #recovery-tools[open] { position: absolute; z-index: 12; top: 40px; right: 12px; width: min(420px, calc(100vw - 48px)); max-height: 75vh; overflow: auto; padding: 12px; background: #252525; border: 1px solid #777; border-radius: 5px; box-shadow: 0 3px 15px #0008; }
     #recovery-tools p { line-height: 1.4; }
+    #background-tools { position: fixed; bottom: 34px; left: 50%; transform: translateX(-50%); z-index: 30; max-width: calc(100vw - 40px); padding: 10px 12px; background: #252525; border: 1px solid #777; border-radius: 6px; box-shadow: 0 3px 15px #0008; }
+    #background-tools[hidden] { display: none; }
+    #background-tools p { margin: 0 0 8px; }
+
   </style>
   <script src="./build-config.js" defer></script>
   <script src="./recovery.js" defer></script>
@@ -41,6 +45,7 @@
   <script src="./font-browser.js" defer></script>
   <script src="./fullscreen.js" defer></script>
   <script src="./image-paste.js" defer></script>
+  <script src="./background-removal.js" defer></script>
 </head>
 <body>
   <button id="show-toolbar" type="button" aria-controls="host-toolbar" aria-expanded="false" hidden>Show tools</button>
@@ -77,6 +82,11 @@
   <span id="fullscreen-status" role="status" aria-live="polite"></span>
   <button id="hide-toolbar" type="button" aria-controls="host-toolbar" aria-expanded="true">Hide tools</button>
   </nav>
+  <aside id="background-tools" aria-label="Background removal" hidden>
+    <p id="background-status" role="status" aria-live="polite"></p>
+    <button id="background-cancel" type="button" hidden>Cancel</button>
+    <button id="background-dismiss" type="button">Dismiss</button>
+  </aside>
   <iframe id="editor" title="PhotoCraft image editor"
     allow="fullscreen; clipboard-read; clipboard-write" allowfullscreen></iframe>
 </body>

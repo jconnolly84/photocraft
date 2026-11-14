@@ -36,12 +36,12 @@ modules and app parts across builds.
 
 ## Published and verified
 
-Build workflow `43644410662` succeeded, including upstream packaging and source
+Build workflow `43649056928` succeeded, including upstream packaging and source
 layer checks. Its full archive is preserved under `custom-build/web`, with hashes
 and source details in `custom-build/BUILD.json`, and the exact diff in
 `custom-build/source.patch`. The original release is still under `photocraft/`.
 
-The served app lives at a per-build URL (`build-43644410662/`) and the wrapper
+The served app lives at a per-build URL (`build-43649056928/`) and the wrapper
 selects it through a fingerprinted config script. This prevents Pages' fixed
 10-minute cache from mixing old manifests/glue with new app parts. Every host
 script is also fingerprinted. A changed font catalog requires a fresh custom
@@ -63,5 +63,25 @@ changes are in `custom-build/source.patch`; reproducible integration is in
 Previous build 43641177593 is preserved under `custom-build/previous/`.
 
 Remove Background uses the upstream heuristic subject detector and adds an
-undoable layer mask. It is intended for raster layers; rasterize Smart Objects
-first. Complex subjects and hair may need manual mask refinement.
+undoable layer mask. It supports raster layers and Smart Objects; Smart Object content remains
+editable beneath the new mask. Complex subjects and hair may need manual mask refinement.
+
+
+## AI upgrade verification
+
+Select > Remove Background now uses the local BiRefNet Lite 512 worker through
+an explicit Rust host service. Remove Background (Quick) retains the heuristic.
+`BACKGROUND-REMOVAL.md` documents download size, local processing, limits and
+licences. `scripts/patch_ai_background.py` and `custom-source/browser_background.rs`
+wire the service; `custom-source/background_mask.rs` validates and applies its
+result as one undoable engine edit only to the unchanged source revision.
+
+The final browser build compiled, packaged and passed source layer checks in run
+43649056928. The menu/Smart Object native regressions passed in run 43647163896
+(nine cutout tests and one actual menu test); all three classification tests
+passed for the expanded 72-family catalog in run 43647842593. Host clipboard,
+recovery, font access, shortcuts and AI cancellation/restart tests passed too.
+Live checks verified external Edit > Paste, internal Copy/Paste, the AI mask on a
+Smart Object, Undo, cancellation and rejecting a stale result. The native
+Blackletter category listed all six families; UnifrakturCook downloaded and
+rendered its Blackletter preview. Test photos are not shipped.

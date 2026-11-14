@@ -8,6 +8,7 @@ on:
       - 'custom-build/**'
       - 'host/**'
       - 'font-library/**'
+      - 'ai-assets/**'
       - 'scripts/prepare_photocraft.py'
       - '.github/workflows/photocraft-pages.yml'
   workflow_dispatch:
@@ -42,6 +43,7 @@ jobs:
           node scripts/test_shortcuts.cjs
           node scripts/test_local_fonts.cjs
           node scripts/test_image_paste.cjs
+          node scripts/test_background_removal.cjs
       - name: Check local recovery transactions
         run: |
           npm install --prefix "$RUNNER_TEMP/recovery-tests" fake-indexeddb@6.2.8 --no-audit --no-fund

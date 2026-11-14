@@ -7,8 +7,8 @@ it is placed as an image layer (confirm placement with Enter).
 
 Ctrl+V also has an image-paste-event adapter when the browser supplies image data
 to the focused editor. Plain text paste and the editor's own copy/paste continue
-through PhotoCraft's existing handlers. The native Edit → Paste menu still uses
-PhotoCraft's internal clipboard: use the host's **Paste image** for external images.
+through PhotoCraft's existing handlers. Edit → Paste uses the browser image adapter too, while keeping native editable
+copies on PhotoCraft's internal clipboard route.
 
 The adapter reads supported image bytes from the clipboard and passes a File
 directly to the unchanged browser file-drop decoder. No image bytes are uploaded.
@@ -29,3 +29,13 @@ clipboard permissions may still be required on managed school machines.
 
 The shortcut hint, credits and controls now share one toolbar. Hide tools leaves
 a small Show tools button at the top-right; this choice persists across reloads.
+
+Menu integration regression coverage checks that Paste is enabled without a
+clipboard read (which could prompt), and starts exactly one read on a click.
+The host's test covers the shared menu/toolbar delivery path and internal-copy
+fallback. Text editing retains PhotoCraft's text-paste behavior.
+
+Live custom-build verification (2026-11-14): Edit > Paste opened an external PNG
+from an empty workspace, then placed it into the document as a Smart Object.
+Edit > Copy followed by Edit > Paste took the native internal path and added a
+pixel layer, without reading the external clipboard again.

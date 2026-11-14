@@ -1,0 +1,24 @@
+{
+  "source": "studioludens/birefnet-lite-512",
+  "revision": "962e67969ec6acec9c19fab76acee4f5e22e990c",
+  "license": "MIT",
+  "bytes": 191877254,
+  "sha256": "1cb0fb360dadd15af77c639085d77a9df67db0c64315560c3de005f676345ac2",
+  "parts": [
+    {
+      "file": "model.part-01.bin",
+      "bytes": 75000000,
+      "sha256": "092a2a133e0babdd4ef7f8fb32a02830f9059ae25047a2d7e661dde2bdfb92b8"
+    },
+    {
+      "file": "model.part-02.bin",
+      "bytes": 75000000,
+      "sha256": "33f84ba302fcc11f1743af9291cabe7a0df81dac42809c53f9e09b5ad7da0bbb"
+    },
+    {
+      "file": "model.part-03.bin",
+      "bytes": 41877254,
+      "sha256": "bbdefefea3c7d86011d3ae21aa13ed27153c62271636d74adbb753108855ad3a"
+    }
+  ]
+}

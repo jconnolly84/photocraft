@@ -10,12 +10,83 @@ index 7054d67..93483a0 100644
  photocraft-io = { workspace = true }
  photocraft-codecs = { workspace = true }
  photocraft-doc = { workspace = true }
+diff --git a/apps/photocraft-web/src/browser_background.rs b/apps/photocraft-web/src/browser_background.rs
+new file mode 100644
+index 0000000..4a03ad2
+--- /dev/null
++++ b/apps/photocraft-web/src/browser_background.rs
+@@ -0,0 +1,65 @@
++//! Async on-device model bridge. No image is uploaded; the host worker returns a mask.
++use std::cell::{Cell, RefCell};
++use js_sys::{Function, Object, Reflect, Uint8Array};
++use wasm_bindgen::{JsCast, JsValue};
++use wasm_bindgen_futures::JsFuture;
++use photocraft_codecs::{ChannelLayout, EncodeOptions, Image};
++use photocraft_doc::Document;
++use photocraft_ui_egui::PhotocraftApp;
++
++struct Outcome { document: u64, revision: u64, layer: u64, bounds: [i32; 4], result: Result<Vec<u8>, String> }
++thread_local! {
++    static BUSY: Cell<bool> = const {Cell::new(false)};
++    static DONE: RefCell<Vec<Outcome>> = const {RefCell::new(Vec::new())};
++}
++fn error(value: JsValue) -> String {value.as_string().unwrap_or_else(|| format!("{value:?}"))}
++fn parent_function(name: &str) -> Result<(web_sys::Window, Function), String> {
++    let host = web_sys::window().ok_or("no browser window")?.parent().map_err(error)?.ok_or("no host window")?;
++    let function = Reflect::get(&host, &JsValue::from_str(name)).map_err(error)?.dyn_into::<Function>().map_err(|_| "AI background removal is unavailable in this host")?;
++    Ok((host, function))
++}
++pub fn start(doc: &Document, layer: u64, revision: u64) -> Result<(), String> {
++    if BUSY.with(Cell::get) {return Err("Background removal is already running. Use Cancel in the toolbar to stop it.".into());}
++    let target = doc.layer(photocraft_doc::LayerId(layer)).ok_or("select an image layer")?;
++    let surface = target.surface().ok_or("The image is not rendered yet. Try again after it loads.")?;
++    let area = surface.content_bounds().intersect(&doc.bounds());
++    let count = u64::from(area.width()) * u64::from(area.height());
++    if area.is_empty() || count > 16_777_216 {return Err("AI background removal supports image layers up to 16 megapixels. Resize the image first.".into());}
++    let mut pixels = vec![[0u8; 4]; count as usize];
++    surface.read_rgba8_into(area, &mut pixels);
++    let image = Image::from_u8(area.width(), area.height(), ChannelLayout::Rgba, pixels.into_iter().flatten().collect()).map_err(|e| e.to_string())?;
++    let png = photocraft_codecs::encode(&image, photocraft_codecs::Format::Png, &EncodeOptions::default()).map_err(|e| e.to_string())?;
++    let (host, function) = parent_function("photocraftRemoveBackground")?;
++    let object = Object::new();
++    Reflect::set(&object, &JsValue::from_str("png"), &Uint8Array::from(png.as_slice())).map_err(error)?;
++    let promise = js_sys::Promise::resolve(&function.call1(&host, &object).map_err(error)?);
++    let document = doc.id.0;
++    let bounds = [area.x0, area.y0, area.width() as i32, area.height() as i32];
++    BUSY.with(|busy| busy.set(true));
++    wasm_bindgen_futures::spawn_local(async move {
++        let result = async {
++            let value = JsFuture::from(promise).await.map_err(error)?;
++            let bytes: Uint8Array = value.dyn_into().map_err(|_| "Invalid model mask bytes")?;
++            if u64::from(bytes.length()) != count {return Err("Model mask dimensions do not match the image".into());}
++            Ok(bytes.to_vec())
++        }.await;
++        DONE.with(|done| done.borrow_mut().push(Outcome {document, revision, layer, bounds, result}));
++        BUSY.with(|busy| busy.set(false));
++    });
++    Ok(())
++}
++pub fn poll(app: &mut PhotocraftApp, ctx: &egui::Context) {
++    for outcome in DONE.with(|done| std::mem::take(&mut *done.borrow_mut())) {
++        let result = outcome.result.and_then(|alpha| photocraft_engine::cutout_cmds::apply_model_mask(&mut app.session, outcome.document, outcome.revision, outcome.layer, outcome.bounds, alpha).map_err(|e| e.to_string()));
++        let (message, success) = match result {
++            Ok(()) => ("Background removed locally. Undo restores the original.".to_string(), true),
++            Err(reason) => (format!("Background was not changed: {reason}"), false),
++        };
++        app.ui.status = message.clone();
++        app.ui.status_error = !success;
++        if let Ok((host, function)) = parent_function("photocraftBackgroundComplete") {
++            let _ = function.call1(&host, &JsValue::from_str(&message));
++        }
++    }
++    if BUSY.with(Cell::get) {ctx.request_repaint_after(std::time::Duration::from_millis(100));}
++}
 diff --git a/apps/photocraft-web/src/browser_recovery.rs b/apps/photocraft-web/src/browser_recovery.rs
 new file mode 100644
-index 0000000..8690da8
+index 0000000..3d9987f
 --- /dev/null
 +++ b/apps/photocraft-web/src/browser_recovery.rs
-@@ -0,0 +1,102 @@
+@@ -0,0 +1,111 @@
 +//! Local-only recovery and clipboard services for the school browser host.
 +use std::sync::{Arc, Mutex, PoisonError};
 +use js_sys::{Array, Function, Object, Reflect, Uint8Array};
@@ -118,22 +189,34 @@ index 0000000..8690da8
 +    });
 +    Ok(())
 +}
++
++/// Start the host's asynchronous clipboard read while the menu click is active.
++/// Returning false leaves PhotoCraft's native editable clipboard route intact.
++pub fn paste_clipboard() -> Result<bool, String> {
++    let host = web_sys::window().ok_or("no browser window")?.parent().map_err(js)?.ok_or("no host window")?;
++    let value = Reflect::get(&host, &JsValue::from_str("photocraftBrowserPaste")).map_err(js)?;
++    let Ok(function) = value.dyn_into::<Function>() else { return Ok(false) };
++    function.call0(&host).map_err(js).map(|value| value.as_bool().unwrap_or(false))
++}
 diff --git a/apps/photocraft-web/src/main.rs b/apps/photocraft-web/src/main.rs
-index 6084619..9b92753 100644
+index 6084619..cb51ebb 100644
 --- a/apps/photocraft-web/src/main.rs
 +++ b/apps/photocraft-web/src/main.rs
-@@ -27,6 +27,9 @@ mod preset_bridge;
+@@ -27,6 +27,12 @@ mod preset_bridge;
  #[cfg(target_arch = "wasm32")]
  mod indexed_presets;
  
 +#[cfg(target_arch = "wasm32")]
 +mod browser_recovery;
 +
++#[cfg(target_arch = "wasm32")]
++mod browser_background;
++
  #[cfg(target_arch = "wasm32")]
  mod web;
  
 diff --git a/apps/photocraft-web/src/web.rs b/apps/photocraft-web/src/web.rs
-index 5f6b71e..70961fe 100644
+index 5f6b71e..3eb1751 100644
 --- a/apps/photocraft-web/src/web.rs
 +++ b/apps/photocraft-web/src/web.rs
 @@ -81,6 +81,7 @@ pub fn start() {
@@ -160,7 +243,15 @@ index 5f6b71e..70961fe 100644
                      if !preset_warnings.is_empty() {
                          photocraft_ui_egui::notices::post(&mut app, i18n::t("Some brush presets could not be loaded"), preset_warnings, true, None);
                      }
-@@ -499,8 +507,8 @@ impl eframe::App for WebShell {
+@@ -425,6 +433,7 @@ impl eframe::App for WebShell {
+     }
+ 
+     fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
++        crate::browser_background::poll(&mut self.app, ctx);
+         let dropped = ctx.input_mut(|i| std::mem::take(&mut i.raw.dropped_files));
+         if !dropped.is_empty() {
+             let names: Vec<String> =
+@@ -499,8 +508,8 @@ impl eframe::App for WebShell {
      }
  }
  
@@ -171,10 +262,12 @@ index 5f6b71e..70961fe 100644
          screen_pick: screen_color_service(),
          import: Some(Box::new(|name: &str, bytes: &[u8], opts: &photocraft_io::ImportOptions| {
              photocraft_io::import_with_options(name, bytes, opts).map(|r| (r.document, r.warnings)).map_err(|e| e.to_string())
-@@ -545,6 +553,11 @@ fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egu
+@@ -545,6 +554,13 @@ fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egu
              }
          })),
          write: Some(Box::new(|path: &str, bytes: &[u8]| download(path, bytes))),
++        browser_paste: Some(Box::new(crate::browser_recovery::paste_clipboard)),
++        browser_remove_background: Some(Box::new(crate::browser_background::start)),
 +        clipboard_set_image: Some(Box::new(|w, h, rgba| {
 +            let image = Image::from_u8(w, h, ChannelLayout::Rgba, rgba.to_vec()).map_err(|error| error.to_string())?;
 +            let png = photocraft_codecs::encode(&image, photocraft_codecs::Format::Png, &EncodeOptions::default()).map_err(|error| error.to_string())?;
@@ -183,7 +276,7 @@ index 5f6b71e..70961fe 100644
          // A download may be cancelled and never reports back: it doesn't save the document.
          write_unconfirmed: true,
          encode_png: Some(Box::new(|w, h, rgba| {
-@@ -561,7 +574,9 @@ fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egu
+@@ -561,7 +577,9 @@ fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egu
          save_gpu_memo: None,
          shader_compiler: None,
          ..Default::default()
@@ -194,18 +287,219 @@ index 5f6b71e..70961fe 100644
  }
  
  const PREFS_KEY: &str = "photocraft.preferences";
+diff --git a/crates/engine/src/cmd/cutout_cmds.rs b/crates/engine/src/cmd/cutout_cmds.rs
+index 9715192..f16f821 100644
+--- a/crates/engine/src/cmd/cutout_cmds.rs
++++ b/crates/engine/src/cmd/cutout_cmds.rs
+@@ -21,7 +21,7 @@ const REFINE: RefineParams = RefineParams { radius: 2.0, smart_radius: true, smo
+ 
+ /// Remove Background needs an unlocked pixel layer.
+ fn check(doc: &Document, l: &Layer) -> std::result::Result<(), String> {
+-    if !matches!(l.content, LayerContent::Raster(_)) {
++    if !matches!(l.content, LayerContent::Raster(_) | LayerContent::Smart(_)) {
+         return Err(format!("the layer is {} {} layer, not a pixel layer", l.content.article(), l.content.kind_name()));
+     }
+     let locks = doc.effective_locks(l.id);
+@@ -54,11 +54,21 @@ fn run(s: &mut Session, p: &Value) -> Result<Value> {
+     check(doc, layer).map_err(EngineError::Other)?;
+     let sample_all = p.get("sampleAllLayers").and_then(Value::as_bool).unwrap_or(false);
+     let refine = p.get("refine").and_then(Value::as_bool).unwrap_or(true);
+-    let area = subject_area(layer, doc.bounds(), sample_all);
+     crate::jobs::edit_job(
+         s,
+         "Remove Background",
+         move |doc, _, ctx| {
++            if let Some(mut target) = doc.layer(id).cloned()
++                && matches!(&target.content, LayerContent::Smart(smart) if smart.cache.is_none())
++            {
++                crate::smart_cmds::refresh_layer(doc, &mut target)?;
++                *doc.layer_mut(id).ok_or(EngineError::NoLayer(id))? = target;
++            }
++            let target = doc.layer(id).ok_or(EngineError::NoLayer(id))?;
++            if target.surface().is_none() {
++                return Err(EngineError::Other("The selected image has no rendered pixels".into()));
++            }
++            let area = subject_area(target, doc.bounds(), sample_all);
+             // Cancel reaches the min cuts inside Select Subject, so Esc doesn't wait for them.
+             let found = ctx
+                 .stage(0.1, 0.6, "Finding subject", |ctl| with_doc_sampler(doc, Some(id), sample_all, |smp, _| subject::select_subject_with(smp, area, ctl)))
+@@ -90,7 +100,7 @@ fn run(s: &mut Session, p: &Value) -> Result<Value> {
+ 
+ /// Remove Background command spec (no menu path: a Properties Quick Action in Photoshop).
+ pub fn specs() -> Vec<CommandSpec> {
+-    vec![CommandSpec {
++    let mut specs = vec![CommandSpec {
+         id: CMD,
+         label: "Remove Background",
+         menu: &[],
+@@ -99,7 +109,12 @@ pub fn specs() -> Vec<CommandSpec> {
+         enabled,
+         run,
+         journal: true,
+-    }]
++    }];
++    specs.push(CommandSpec {
++        id: "layer.removeBackgroundQuick", label: "Remove Background (Quick)", menu: &[], shortcut: None,
++        params: specs[0].params, enabled, run, journal: true,
++    });
++    specs
+ }
+ 
+ #[cfg(test)]
+@@ -244,6 +259,26 @@ mod tests {
+         assert!(layer(&s, id).mask.is_none());
+     }
+ 
++    #[test]
++    fn remove_background_preserves_smart_object_and_undo() {
++        let (mut s, inside) = disc(8);
++        s.execute("layer.smartObjects.convertToSmartObject", json!({})).unwrap();
++        let id = active_id(&s);
++        assert!(matches!(layer(&s, id).content, LayerContent::Smart(_)));
++        assert!(s.is_enabled(CMD));
++        let steps = s.active().unwrap().history.past_len();
++        s.execute(CMD, json!({})).unwrap();
++        assert_eq!(s.active().unwrap().history.past_len(), steps + 1);
++        assert!(matches!(layer(&s, id).content, LayerContent::Smart(_)));
++        assert!(layer(&s, id).mask.is_some());
++        assert!(mask_iou(&s, 200, 160, inside) >= 0.75);
++        s.execute("edit.undo", json!({})).unwrap();
++        assert!(matches!(layer(&s, id).content, LayerContent::Smart(_)));
++        assert!(layer(&s, id).mask.is_none());
++        s.execute("layer.setProps", json!({"locks": {"all": true}})).unwrap();
++        assert!(!s.is_enabled(CMD), "respect locked Smart Objects");
++    }
++
+     #[test]
+     fn remove_background_disabled_states_and_bad_params() {
+         assert!(!Session::new().is_enabled(CMD));
+@@ -338,3 +373,30 @@ mod tests {
+         }
+     }
+ }
++
++/// Apply a completed local model mask only to the unchanged source document.
++pub fn apply_model_mask(s: &mut Session, document: u64, revision: u64, layer: u64, bounds: [i32; 4], alpha: Vec<u8>) -> Result<()> {
++    let active = s.active().ok_or(EngineError::NoDocument)?;
++    if active.doc.id.0 != document || active.revision != revision {
++        return Err(EngineError::Other("The document changed while removing the background. Try again.".into()));
++    }
++    let id = photocraft_doc::LayerId(layer);
++    check(&active.doc, active.doc.layer(id).ok_or(EngineError::NoLayer(id))?).map_err(EngineError::Other)?;
++    let [x, y, w, h] = bounds;
++    if w <= 0 || h <= 0 || w as u64 * h as u64 > 16_777_216 || alpha.len() as u64 != w as u64 * h as u64 {
++        return Err(EngineError::Other("Invalid background-removal mask".into()));
++    }
++    let area = Rect::new(x, y, x.saturating_add(w), y.saturating_add(h));
++    if area.intersect(&active.doc.bounds()) != area {
++        return Err(EngineError::Other("Background-removal mask is outside the canvas".into()));
++    }
++    s.edit("Remove Background (AI)", move |doc, _| {
++        let mut mask = crate::commands::mask_at_depth(LayerMask::hide_all(), doc.depth)?;
++        let data: Vec<f32> = alpha.into_iter().map(|value| f32::from(value) / 255.0).collect();
++        mask.surface.write_region(area, &data);
++        crate::extra_cmds::background_to_layer_for_mask(doc, id);
++        doc.layer_mut(id).ok_or(EngineError::NoLayer(id))?.mask = Some(mask);
++        doc.selection = None;
++        Ok(())
++    })
++}
 diff --git a/crates/ui-egui/src/menu_catalog.rs b/crates/ui-egui/src/menu_catalog.rs
-index d6db835..fd4b16d 100644
+index d6db835..65df42e 100644
 --- a/crates/ui-egui/src/menu_catalog.rs
 +++ b/crates/ui-egui/src/menu_catalog.rs
-@@ -547,6 +547,7 @@ pub static CATALOG: &[(&[&str], &str, Option<&str>, &str)] = &[
+@@ -547,6 +547,8 @@ pub static CATALOG: &[(&[&str], &str, Option<&str>, &str)] = &[
      (&["Select"], "---", None, "---"),
      (&["Select"], "Color Range…", None, "select.colorRange"),
      (&["Select"], "Focus Area…", None, "select.focusArea"),
 +    (&["Select"], "Remove Background", None, "layer.removeBackground"),
++    (&["Select"], "Remove Background (Quick)", None, "layer.removeBackgroundQuick"),
      (&["Select"], "Subject", None, "select.subject"),
      (&["Select"], "Sky", None, "select.sky"),
      (&["Select"], "Select and Mask…", None, "select.selectAndMask"),
+diff --git a/crates/ui-egui/src/menus.rs b/crates/ui-egui/src/menus.rs
+index 7170389..96ef0c5 100644
+--- a/crates/ui-egui/src/menus.rs
++++ b/crates/ui-egui/src/menus.rs
+@@ -324,3 +324,24 @@ mod window_documents_tests {
+         assert_eq!(app.session.active_index(), Some(0));
+     }
+ }
++
++#[cfg(test)]
++mod browser_paste_menu_tests {
++    use super::*;
++    use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
++    #[test]
++    fn browser_menu_paste_is_enabled_without_reading_and_starts_on_click() {
++        let calls = Arc::new(AtomicUsize::new(0));
++        let count = calls.clone();
++        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services {
++            browser_paste: Some(Box::new(move || {count.fetch_add(1, Ordering::SeqCst); Ok(true)})),
++            ..Default::default()
++        });
++        assert!(is_enabled(&app, "edit.paste"));
++        assert_eq!(calls.load(Ordering::SeqCst), 0);
++        let result = invoke(&mut app, &egui::Context::default(), "edit.paste", json!({})).unwrap();
++        assert_eq!(result["browserPaste"], true);
++        assert_eq!(calls.load(Ordering::SeqCst), 1);
++        assert!(app.session.clipboard.is_none());
++    }
++}
+diff --git a/crates/ui-egui/src/menus/invoke.rs b/crates/ui-egui/src/menus/invoke.rs
+index 43e2214..24667bb 100644
+--- a/crates/ui-egui/src/menus/invoke.rs
++++ b/crates/ui-egui/src/menus/invoke.rs
+@@ -545,7 +545,20 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
+         "select.transformSelection" if params.as_object().is_none_or(|o| o.is_empty()) => {
+             crate::transform_tool::begin_selection(app, ctx).map(|_| json!({"transform": app.ui.transform}))
+         }
++        "layer.removeBackground" if app.services.browser_remove_background.is_some() => {
++            if let Some(reason) = app.session.disabled_reason_with(id, &params) {return Err(reason);}
++            let st = app.session.active().ok_or("no document")?;
++            let layer = st.active_layer.ok_or("select an image layer")?;
++            if let Some(start) = app.services.browser_remove_background.as_mut() {
++                start(&st.doc, layer.0, st.revision)?;
++            }
++            ctx.request_repaint_after(std::time::Duration::from_millis(100));
++            Ok(json!({"backgroundRemoval": "running locally"}))
++        }
+         "edit.paste" if params.as_object().is_none_or(|o| o.is_empty()) => {
++            if app.services.browser_paste.as_mut().map(|paste| paste()).transpose()?.unwrap_or(false) {
++                return Ok(json!({"browserPaste": true}));
++            }
+             // Photoshop: paste in place when the copied area is visible, else centred in the view;
+             // images from other apps are always centred.
+             app.import_os_clipboard()?;
+diff --git a/crates/ui-egui/src/menus/state.rs b/crates/ui-egui/src/menus/state.rs
+index e4bdc7a..62923fe 100644
+--- a/crates/ui-egui/src/menus/state.rs
++++ b/crates/ui-egui/src/menus/state.rs
+@@ -87,7 +87,8 @@ pub fn is_enabled(app: &PhotocraftApp, id: &str) -> bool {
+         // An image copied in another app can only be seen by reading the OS clipboard, which happens
+         // on an explicit paste: with a clipboard service these stay enabled. Paste and New from
+         // Clipboard need no document (with none open, Paste makes one); Paste in Place does.
+-        "edit.paste" | "file.newFromClipboard" => app.session.is_enabled(id) || app.services.clipboard_get_image.is_some(),
++        "edit.paste" => app.session.is_enabled(id) || app.services.clipboard_get_image.is_some() || app.services.browser_paste.is_some(),
++        "file.newFromClipboard" => app.session.is_enabled(id) || app.services.clipboard_get_image.is_some(),
+         "edit.pasteSpecial.pasteInPlace" => app.session.is_enabled(id) || (app.services.clipboard_get_image.is_some() && app.session.active().is_some()),
+         "select.selectAndMask" => app.session.is_enabled("select.refineEdge"),
+         "type.editText" => app
+diff --git a/crates/ui-egui/src/services.rs b/crates/ui-egui/src/services.rs
+index 6e28f00..b348818 100644
+--- a/crates/ui-egui/src/services.rs
++++ b/crates/ui-egui/src/services.rs
+@@ -561,6 +561,10 @@ pub struct Services {
+     /// OS clipboard images: copies go out, screenshots and images from other apps come in.
+     pub clipboard_set_image: Option<ClipboardSetFn>,
+     pub clipboard_get_image: Option<ClipboardGetFn>,
++    /// True when a browser host accepted an asynchronous image paste.
++    pub browser_paste: Option<Box<dyn FnMut() -> Result<bool, String> + Send>>,
++    /// On-device model service, applied asynchronously to the unchanged source layer.
++    pub browser_remove_background: Option<Box<dyn FnMut(&Document, u64, u64) -> Result<(), String> + Send>>,
+     /// SVG text copied by another app: imported only by an explicit pixels/path/shape paste,
+     /// and read after an ordinary paste too, only to remember which SVG came with that image.
+     pub clipboard_get_svg: Option<ClipboardGetSvgFn>,
 diff --git a/crates/ui-egui/src/text/font_filters.rs b/crates/ui-egui/src/text/font_filters.rs
 index 5883860..d614e80 100644
 --- a/crates/ui-egui/src/text/font_filters.rs
@@ -269,10 +563,10 @@ index 5883860..d614e80 100644
      }
 diff --git a/crates/ui-egui/src/text/host_font_classes.rs b/crates/ui-egui/src/text/host_font_classes.rs
 new file mode 100644
-index 0000000..4f637bc
+index 0000000..a981998
 --- /dev/null
 +++ b/crates/ui-egui/src/text/host_font_classes.rs
-@@ -0,0 +1,118 @@
+@@ -0,0 +1,124 @@
 +fn host_class(family: &str) -> Option<FontClass> {
 +    match family {
 +        "Abril Fatface" => Some(FontClass::Serif),
@@ -326,8 +620,10 @@ index 0000000..4f637bc
 +        "Fredericka the Great" => Some(FontClass::Decorative),
 +        "Garamond" => Some(FontClass::Serif),
 +        "Georgia" => Some(FontClass::Serif),
++        "Germania One" => Some(FontClass::Blackletter),
 +        "Glitch Goblin" => Some(FontClass::Decorative),
 +        "Great Vibes" => Some(FontClass::Script),
++        "Grenze Gotisch" => Some(FontClass::Blackletter),
 +        "Harrington" => Some(FontClass::Decorative),
 +        "Help Me" => Some(FontClass::Decorative),
 +        "Impact" => Some(FontClass::SansSerif),
@@ -347,6 +643,7 @@ index 0000000..4f637bc
 +        "Monotype Corsiva" => Some(FontClass::Script),
 +        "Montserrat" => Some(FontClass::SansSerif),
 +        "Neon Sans" => Some(FontClass::Decorative),
++        "New Rocker" => Some(FontClass::Blackletter),
 +        "Nunito Sans" => Some(FontClass::SansSerif),
 +        "Old English Text MT" => Some(FontClass::Blackletter),
 +        "Open Sans" => Some(FontClass::SansSerif),
@@ -357,6 +654,7 @@ index 0000000..4f637bc
 +        "Papyrus" => Some(FontClass::Decorative),
 +        "Patrick Hand" => Some(FontClass::Handwritten),
 +        "Permanent Marker" => Some(FontClass::Handwritten),
++        "Pirata One" => Some(FontClass::Blackletter),
 +        "Playfair Display" => Some(FontClass::Serif),
 +        "Poppins" => Some(FontClass::SansSerif),
 +        "Press Start 2P" => Some(FontClass::Decorative),
@@ -386,6 +684,8 @@ index 0000000..4f637bc
 +        "Tahoma" => Some(FontClass::SansSerif),
 +        "Times New Roman" => Some(FontClass::Serif),
 +        "Trebuchet MS" => Some(FontClass::SansSerif),
++        "UnifrakturCook" => Some(FontClass::Blackletter),
++        "UnifrakturMaguntia" => Some(FontClass::Blackletter),
 +        "Verdana" => Some(FontClass::SansSerif),
 +        "Westhorn" => Some(FontClass::Decorative),
 +        _ => None,
