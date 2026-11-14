@@ -2,6 +2,7 @@
 from pathlib import Path
 import hashlib
 import json
+import re
 import shutil
 
 root = Path(__file__).resolve().parents[1]
@@ -71,5 +72,10 @@ if custom_metadata.exists():
     editor_path = f'./{build_path}/'
 (site / 'build-config.js').write_text('window.PHOTOCRAFT_EDITOR_PATH = ' + json.dumps(editor_path) + ';\n', encoding='utf-8')
 index = site / 'index.html'
-index.write_text(index.read_text(encoding='utf-8').replace('./build-config.js', './build-config.js?path=' + editor_path.strip('./').replace('/', '-')), encoding='utf-8')
+html = index.read_text(encoding='utf-8')
+for script in site.glob('*.js'):
+    digest = hashlib.sha256(script.read_bytes()).hexdigest()[:12]
+    html = re.sub(r'src="\./' + re.escape(script.name) + r'(?:\?[^\"]*)?"',
+                  'src="./' + script.name + '?v=' + digest + '"', html)
+index.write_text(html, encoding='utf-8')
 print('Verified all build bytes and staged PhotoCraft at /photocraft/.')
