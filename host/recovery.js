@@ -140,10 +140,13 @@
   window.photocraftRecoveryAdopt = data => {
     if (!safeKey(data.key) || !/^\d{1,24}$/.test(String(data.docId))) return Promise.reject(new Error('Invalid recovery entry'));
     aliases.set(String(data.docId), data.key);
-    return enqueue(() => mutate(store => {
-      const request = store.get(data.key);
-      request.onsuccess = () => {if (request.result) store.put({...request.result, session});};
-    }));
+    return enqueue(async () => {
+      await mutate(store => {
+        const request = store.get(data.key);
+        request.onsuccess = () => {if (request.result) store.put({...request.result, session});};
+      });
+      notice('Recovered document opened. Local recovery remains enabled.');
+    });
   };
   window.photocraftRecoveryDiscard = id => {
     const key = keyFor(id);

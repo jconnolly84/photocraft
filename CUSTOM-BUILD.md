@@ -36,12 +36,12 @@ modules and app parts across builds.
 
 ## Published and verified
 
-Build workflow `43641177593` succeeded, including upstream packaging and source
+Build workflow `43644410662` succeeded, including upstream packaging and source
 layer checks. Its full archive is preserved under `custom-build/web`, with hashes
 and source details in `custom-build/BUILD.json`, and the exact diff in
 `custom-build/source.patch`. The original release is still under `photocraft/`.
 
-The served app lives at a per-build URL (`build-43641177593/`) and the wrapper
+The served app lives at a per-build URL (`build-43644410662/`) and the wrapper
 selects it through a fingerprinted config script. This prevents Pages' fixed
 10-minute cache from mixing old manifests/glue with new app parts. Every host
 script is also fingerprinted. A changed font catalog requires a fresh custom
@@ -51,3 +51,17 @@ Live browser checks confirmed the built-in Serif and Decorative categories
 list their correct fonts before download, including the new DaFont families.
 The focused Rust harness passed all three tests (every hosted classification,
 actual menu filter results, and preservation of loaded font traits).
+
+
+## Recovery, clipboard and background removal
+
+The current build also exposes upstream `layer.removeBackground` under Select,
+adds PNG export to the browser clipboard, and connects native full-document
+.pcraft autosave/recovery to the host's local IndexedDB store. The exact native
+changes are in `custom-build/source.patch`; reproducible integration is in
+`scripts/patch_extra_features.py` and `custom-source/browser_recovery.rs`.
+Previous build 43641177593 is preserved under `custom-build/previous/`.
+
+Remove Background uses the upstream heuristic subject detector and adds an
+undoable layer mask. It is intended for raster layers; rasterize Smart Objects
+first. Complex subjects and hair may need manual mask refinement.
