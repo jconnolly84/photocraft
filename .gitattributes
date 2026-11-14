@@ -2,3 +2,4 @@
 /font-library/fonts/** -text
 /custom-build/web/** -text
 /custom-build/previous/** -text
+/ai-assets/** -text
