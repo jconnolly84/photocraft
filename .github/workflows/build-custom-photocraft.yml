@@ -92,3 +92,6 @@ jobs:
         run: |
           cargo test -p photocraft-engine --lib cutout_cmds::tests
           cargo test -p photocraft-ui-egui --lib browser_paste_menu_tests
+
+  idle-repaint:
+    uses: ./.github/workflows/test-background-repaint.yml

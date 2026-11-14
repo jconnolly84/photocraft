@@ -12,10 +12,10 @@ index 7054d67..93483a0 100644
  photocraft-doc = { workspace = true }
 diff --git a/apps/photocraft-web/src/browser_background.rs b/apps/photocraft-web/src/browser_background.rs
 new file mode 100644
-index 0000000..4a03ad2
+index 0000000..e7ca72a
 --- /dev/null
 +++ b/apps/photocraft-web/src/browser_background.rs
-@@ -0,0 +1,65 @@
+@@ -0,0 +1,75 @@
 +//! Async on-device model bridge. No image is uploaded; the host worker returns a mask.
 +use std::cell::{Cell, RefCell};
 +use js_sys::{Function, Object, Reflect, Uint8Array};
@@ -29,6 +29,7 @@ index 0000000..4a03ad2
 +thread_local! {
 +    static BUSY: Cell<bool> = const {Cell::new(false)};
 +    static DONE: RefCell<Vec<Outcome>> = const {RefCell::new(Vec::new())};
++    static WAKE: RefCell<Option<egui::Context>> = const {RefCell::new(None)};
 +}
 +fn error(value: JsValue) -> String {value.as_string().unwrap_or_else(|| format!("{value:?}"))}
 +fn parent_function(name: &str) -> Result<(web_sys::Window, Function), String> {
@@ -63,10 +64,16 @@ index 0000000..4a03ad2
 +        }.await;
 +        DONE.with(|done| done.borrow_mut().push(Outcome {document, revision, layer, bounds, result}));
 +        BUSY.with(|busy| busy.set(false));
++        // A completed promise can arrive between idle logic ticks. Wake a real
++        // UI paint instead of waiting for another mouse or keyboard event.
++        WAKE.with(|wake| {
++            if let Some(ctx) = wake.borrow().as_ref() {ctx.request_repaint();}
++        });
 +    });
 +    Ok(())
 +}
 +pub fn poll(app: &mut PhotocraftApp, ctx: &egui::Context) {
++    WAKE.with(|wake| *wake.borrow_mut() = Some(ctx.clone()));
 +    for outcome in DONE.with(|done| std::mem::take(&mut *done.borrow_mut())) {
 +        let result = outcome.result.and_then(|alpha| photocraft_engine::cutout_cmds::apply_model_mask(&mut app.session, outcome.document, outcome.revision, outcome.layer, outcome.bounds, alpha).map_err(|e| e.to_string()));
 +        let (message, success) = match result {
@@ -75,6 +82,9 @@ index 0000000..4a03ad2
 +        };
 +        app.ui.status = message.clone();
 +        app.ui.status_error = !success;
++        // Session edits happen in logic; request the next UI pass explicitly
++        // so the changed document revision reaches the canvas immediately.
++        ctx.request_repaint();
 +        if let Ok((host, function)) = parent_function("photocraftBackgroundComplete") {
 +            let _ = function.call1(&host, &JsValue::from_str(&message));
 +        }
@@ -216,7 +226,7 @@ index 6084619..cb51ebb 100644
  mod web;
  
 diff --git a/apps/photocraft-web/src/web.rs b/apps/photocraft-web/src/web.rs
-index 5f6b71e..3eb1751 100644
+index 5f6b71e..947c42f 100644
 --- a/apps/photocraft-web/src/web.rs
 +++ b/apps/photocraft-web/src/web.rs
 @@ -81,6 +81,7 @@ pub fn start() {
@@ -227,7 +237,7 @@ index 5f6b71e..3eb1751 100644
          let pen_target = canvas.clone();
          let runner = eframe::WebRunner::new();
          // After the runner's own panic handler, so the message is kept and the runner's handler
-@@ -102,7 +103,14 @@ pub fn start() {
+@@ -102,7 +103,15 @@ pub fn start() {
                      let (session, warnings) = crate::preset_bridge::session(presets.clone());
                      preset_warnings.extend(warnings);
                      let drag = listen_drag(&pen_target);
@@ -240,10 +250,11 @@ index 5f6b71e..3eb1751 100644
 +                            prefs.file_handling.recover_on_launch = true;
 +                        });
 +                    }
++                    initialize_default_panels(&mut app);
                      if !preset_warnings.is_empty() {
                          photocraft_ui_egui::notices::post(&mut app, i18n::t("Some brush presets could not be loaded"), preset_warnings, true, None);
                      }
-@@ -425,6 +433,7 @@ impl eframe::App for WebShell {
+@@ -425,6 +434,7 @@ impl eframe::App for WebShell {
      }
  
      fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
@@ -251,7 +262,7 @@ index 5f6b71e..3eb1751 100644
          let dropped = ctx.input_mut(|i| std::mem::take(&mut i.raw.dropped_files));
          if !dropped.is_empty() {
              let names: Vec<String> =
-@@ -499,8 +508,8 @@ impl eframe::App for WebShell {
+@@ -499,8 +509,8 @@ impl eframe::App for WebShell {
      }
  }
  
@@ -262,7 +273,7 @@ index 5f6b71e..3eb1751 100644
          screen_pick: screen_color_service(),
          import: Some(Box::new(|name: &str, bytes: &[u8], opts: &photocraft_io::ImportOptions| {
              photocraft_io::import_with_options(name, bytes, opts).map(|r| (r.document, r.warnings)).map_err(|e| e.to_string())
-@@ -545,6 +554,13 @@ fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egu
+@@ -545,6 +555,13 @@ fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egu
              }
          })),
          write: Some(Box::new(|path: &str, bytes: &[u8]| download(path, bytes))),
@@ -276,7 +287,7 @@ index 5f6b71e..3eb1751 100644
          // A download may be cancelled and never reports back: it doesn't save the document.
          write_unconfirmed: true,
          encode_png: Some(Box::new(|w, h, rgba| {
-@@ -561,7 +577,9 @@ fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egu
+@@ -561,7 +578,9 @@ fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egu
          save_gpu_memo: None,
          shader_compiler: None,
          ..Default::default()
@@ -287,6 +298,24 @@ index 5f6b71e..3eb1751 100644
  }
  
  const PREFS_KEY: &str = "photocraft.preferences";
+@@ -679,3 +698,17 @@ fn screen_color_service() -> Option<photocraft_ui_egui::screen_picker::Service>
+         Pending { receiver: rx, cancelled }
+     }))
+ }
++
++/// Upgrade Essentials once; saved named workspaces and subsequent panel choices survive.
++fn initialize_default_panels(app: &mut PhotocraftApp) {
++    const KEY: &str = "photocraft.history-layers-default.v1";
++    let storage = web_sys::window().and_then(|window| window.local_storage().ok().flatten());
++    let first = storage.as_ref().and_then(|store| store.get_item(KEY).ok())
++        .map(|value| value.is_none()).unwrap_or_else(|| app.session.prefs().panel_layout.is_null());
++    if first {
++        if app.ui.workspace == "Essentials" {
++            photocraft_ui_egui::menus::apply_workspace(app);
++        }
++        if let Some(store) = storage {let _ = store.set_item(KEY, "true");}
++    }
++}
 diff --git a/crates/engine/src/cmd/cutout_cmds.rs b/crates/engine/src/cmd/cutout_cmds.rs
 index 9715192..f16f821 100644
 --- a/crates/engine/src/cmd/cutout_cmds.rs
@@ -447,7 +476,7 @@ index 7170389..96ef0c5 100644
 +    }
 +}
 diff --git a/crates/ui-egui/src/menus/invoke.rs b/crates/ui-egui/src/menus/invoke.rs
-index 43e2214..24667bb 100644
+index 43e2214..2e4e972 100644
 --- a/crates/ui-egui/src/menus/invoke.rs
 +++ b/crates/ui-egui/src/menus/invoke.rs
 @@ -545,7 +545,20 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
@@ -471,6 +500,15 @@ index 43e2214..24667bb 100644
              // Photoshop: paste in place when the copied area is visible, else centred in the view;
              // images from other apps are always centred.
              app.import_os_clipboard()?;
+@@ -927,7 +940,7 @@ pub fn apply_workspace(app: &mut PhotocraftApp) {
+         // Color includes Swatches; Navigator keeps the pixel canvas easy to inspect.
+         "Pixel Art" => (true, true, true, false, false),
+         "Motion" => (false, false, true, false, true),
+-        _ => (false, true, true, false, true),
++        _ => (false, false, true, true, false),
+     };
+     p.navigator = nav;
+     p.color = color;
 diff --git a/crates/ui-egui/src/menus/state.rs b/crates/ui-egui/src/menus/state.rs
 index e4bdc7a..62923fe 100644
 --- a/crates/ui-egui/src/menus/state.rs

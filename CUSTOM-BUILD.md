@@ -36,12 +36,12 @@ modules and app parts across builds.
 
 ## Published and verified
 
-Build workflow `43649056928` succeeded, including upstream packaging and source
+Build workflow `43651944804` succeeded, including upstream packaging and source
 layer checks. Its full archive is preserved under `custom-build/web`, with hashes
 and source details in `custom-build/BUILD.json`, and the exact diff in
 `custom-build/source.patch`. The original release is still under `photocraft/`.
 
-The served app lives at a per-build URL (`build-43649056928/`) and the wrapper
+The served app lives at a per-build URL (`build-43651944804/`) and the wrapper
 selects it through a fingerprinted config script. This prevents Pages' fixed
 10-minute cache from mixing old manifests/glue with new app parts. Every host
 script is also fingerprinted. A changed font catalog requires a fresh custom
@@ -77,7 +77,7 @@ wire the service; `custom-source/background_mask.rs` validates and applies its
 result as one undoable engine edit only to the unchanged source revision.
 
 The final browser build compiled, packaged and passed source layer checks in run
-43649056928. The menu/Smart Object native regressions passed in run 43647163896
+43651944804. The menu/Smart Object native regressions passed in run 43647163896
 (nine cutout tests and one actual menu test); all three classification tests
 passed for the expanded 72-family catalog in run 43647842593. Host clipboard,
 recovery, font access, shortcuts and AI cancellation/restart tests passed too.
@@ -85,3 +85,21 @@ Live checks verified external Edit > Paste, internal Copy/Paste, the AI mask on 
 Smart Object, Undo, cancellation and rejecting a stale result. The native
 Blackletter category listed all six families; UnifrakturCook downloaded and
 rendered its Blackletter preview. Test photos are not shipped.
+
+
+## Idle repaint and school workspace defaults
+
+The AI completion bridge now wakes egui when its promise settles and explicitly
+requests a UI paint after applying the mask. The real egui regression harness
+executes the production poll function on an idle context: the pre-fix behavior
+fails, and both successful completion and failure/cancellation pass with the fix
+(workflow 43652394217). This test is included in future custom build workflows.
+A live check ran Remove Background, then waited without another input event;
+the transparent background appeared automatically with the original tool kept.
+
+The Essentials workspace defaults to History above Layers. A one-time migration
+updates existing Essentials layouts; named custom workspaces remain untouched,
+and later layout changes are remembered normally. The reproducible patch is
+scripts/patch_default_panels.py. Build 43651944804 contains both changes and
+passed compilation, upstream packaging and source layer checks. All app, model
+and font bytes were verified during static-site staging.

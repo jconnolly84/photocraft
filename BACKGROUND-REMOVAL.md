@@ -39,3 +39,8 @@ The compiled editor integration was also verified on a Smart Object: the mask
 applied, Undo restored the original, Cancel kept the original, and editing the
 document during processing rejected the delayed result. The exact staged app
 was used for these checks before publication.
+
+Completion now wakes the idle editor and explicitly requests a canvas repaint.
+A no-input browser check verified that the background becomes transparent
+without switching to the Eraser or clicking another tool. The egui regression
+harness proves the old behavior fails and the fixed completion/error paths pass.

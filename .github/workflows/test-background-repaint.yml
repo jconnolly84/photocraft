@@ -1,6 +1,7 @@
 name: Test idle background-removal repaint
 on:
   workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
 jobs:

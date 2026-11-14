@@ -1,13 +1,14 @@
 {
   "upstream_version": "v0.23.1",
   "upstream_commit": "45066c48292e92229ada3459a83453439514c83d",
-  "workflow_run": "43649056928",
-  "archive_sha256": "a91c79e2eb528e72d5467635fcbc56988c792668574fa34e24a684303d202ea5",
+  "workflow_run": "43651944804",
+  "archive_sha256": "5ee40ef0aa13af7beea01bbbe06ed7d12a5ceb679d56c34593b1c549f0d6ba3b",
   "patch": "scripts/patch_photocraft_source.py",
   "patches": [
     "scripts/patch_photocraft_source.py",
     "scripts/patch_extra_features.py",
-    "scripts/patch_ai_background.py"
+    "scripts/patch_ai_background.py",
+    "scripts/patch_default_panels.py"
   ],
   "files": {
     "HOSTING.md": "fe354f01f644c1e6d712102dfd33ae4317a56abce44b1cd7b4671abe3441bf82",
@@ -23,8 +24,8 @@
     "ATTRIBUTION.md": "ef42af719a7282ff5b505039eeaae9ae5aeff45615b8b94131200656ba297c0a",
     "LICENSE-APACHE": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
     "app/photocraft-web.js": "9f2ed75701ba3444482536e1fd73beefbc2caa54280c95be70674512a6399761",
-    "app/photocraft-web-5fded417dc714556.part-aa": "e73cee7ae7bb43c75a85bf05c780554c430a6441fa3e207b2c62be8c462aca4c",
-    "app/parts.txt": "619c18d078e37b7251e3066bdd508b395574845c53f6b06337da773ae7c8343a"
+    "app/photocraft-web-b263103dc0abdcc2.part-aa": "3d961bcaf02db04e04d2cb78ba93a14c216cc1b40bdc24552b2309fc55fef3fe",
+    "app/parts.txt": "e6fdb6b195502930e7254b5712090feee784b51da3353d1d975a5761cf4dc933"
   },
   "features": [
     "font_categories",
@@ -33,7 +34,8 @@
     "background_menu",
     "browser_menu_paste",
     "smart_object_background",
-    "ai_background"
+    "ai_background",
+    "history_layers_default"
   ],
   "font_catalog_sha256": "b3f73d7c1ce22123313de5b12d6f1748b621a66a6b49b36bbebf0ef36d38152d"
 }
