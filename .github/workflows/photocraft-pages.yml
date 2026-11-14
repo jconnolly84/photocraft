@@ -1,0 +1,41 @@
+name: Deploy PhotoCraft to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'photocraft/**'
+      - 'scripts/prepare_photocraft.py'
+      - '.github/workflows/photocraft-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: photocraft-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Prepare static site without changing release files
+        run: python scripts/prepare_photocraft.py
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - name: Publish
+        id: deployment
+        uses: actions/deploy-pages@v4
