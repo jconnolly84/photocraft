@@ -18,7 +18,7 @@
       if (document.fullscreenElement) await document.exitFullscreen();
       else await document.documentElement.requestFullscreen();
       update();
-    } catch { status.textContent = 'Fullscreen was blocked by the browser.'; }
+    } catch { status.textContent = 'Fullscreen was blocked. Press F11 instead.'; }
   });
   update();
 })();

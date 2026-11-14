@@ -36,3 +36,19 @@ fonts installed there, or manually chosen alternatives.
 tab isolation, lack of network font requests, and normal request passthrough.
 
 API reference: https://developer.chrome.com/docs/capabilities/web-apis/local-fonts
+
+## Finding fonts and fullscreen
+
+The persistent top toolbar contains **Fonts & import** and **Full screen**.
+The font panel includes the installed-font permission button and an independently
+categorized browser for all 56 hosted font families. Select a category, copy a
+family name and paste it into the Type tool's font field. This does not change
+the official app's own filter logic: unread served fonts have no traits until
+loaded, and some fonts carry no classification metadata at all.
+
+The fullscreen control uses the browser Fullscreen API and changes to **Exit full
+screen** when active; Esc also exits. If a browser or policy blocks the request,
+the control displays the F11 fallback. Automated browser verification confirmed
+the serif category's eight entries and visible import controls; the automation
+browser rejected fullscreen activation, so actual fullscreen entry remains a
+manual-browser check.
