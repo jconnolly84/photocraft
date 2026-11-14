@@ -101,6 +101,10 @@
   }
   window.photocraftRecoveryLoad = async () => {
     if (!enabled) throw new Error('Recovery disabled');
+    // A font-setting change may restart only the editor iframe. Finish its old
+    // writes before assigning the restarted editor's fresh document ids.
+    await queue;
+    aliases.clear();
     const selected = await recoverable();
     if (selected.length) notice(`Reopening ${selected.length} local recovery document(s)…`);
     const TypedArray = frame.contentWindow.Uint8Array;

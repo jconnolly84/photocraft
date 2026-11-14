@@ -4,6 +4,19 @@ const vm = require('node:vm');
 const {webcrypto} = require('node:crypto');
 const {indexedDB} = require(process.argv[2] || 'fake-indexeddb');
 const leases = new Map();
+async function storedSnapshots() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('photocraft.document-recovery.v1', 1);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('snapshots', 'readonly');
+      const rows = tx.objectStore('snapshots').getAll();
+      tx.oncomplete = () => {db.close(); resolve(rows.result);};
+      tx.onerror = () => reject(tx.error);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
 function host(options = {}) {
   const controls = new Map();
   const elements = new Map();
@@ -47,11 +60,11 @@ function host(options = {}) {
   const changed = new Uint8Array([1, 2, 3, 4]);
   await restored.win.photocraftRecoverySave({docId: '8', revision: '3', name: 'Edited recovery', bytes: changed});
   await assert.rejects(restored.win.photocraftRecoverySave({docId: '8', revision: '4', name: 'Too large', bytes: new Uint8Array(64 * 1024 * 1024 + 1)}));
-  const stillGood = await restored.win.photocraftRecoveryLoad();
+  const stillGood = (await storedSnapshots()).filter(row => row.key === snapshots[0].key);
   assert.equal(stillGood.length, 1);
-  assert.deepEqual([...stillGood[0].bytes], [...changed], 'Failed save must preserve the previous successful snapshot');
+  assert.deepEqual([...new Uint8Array(await stillGood[0].blob.arrayBuffer())], [...changed], 'Failed save must preserve the previous successful snapshot');
   await restored.win.photocraftRecoveryDiscard('8');
-  assert.equal((await restored.win.photocraftRecoveryLoad()).length, 0);
+  assert.equal((await storedSnapshots()).filter(row => row.key === snapshots[0].key).length, 0);
   const disabled = host({disabled: true});
   await assert.rejects(disabled.win.photocraftRecoveryLoad(), /disabled/);
   await restored.win.photocraftClipboardWrite(bytes);
