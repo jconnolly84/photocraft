@@ -1,3 +1,211 @@
+diff --git a/apps/photocraft-web/Cargo.toml b/apps/photocraft-web/Cargo.toml
+index 7054d67..93483a0 100644
+--- a/apps/photocraft-web/Cargo.toml
++++ b/apps/photocraft-web/Cargo.toml
+@@ -20,6 +20,7 @@ path = "src/main.rs"
+ 
+ [dependencies]
+ photocraft-engine = { workspace = true }
++photocraft-format = { workspace = true }
+ photocraft-io = { workspace = true }
+ photocraft-codecs = { workspace = true }
+ photocraft-doc = { workspace = true }
+diff --git a/apps/photocraft-web/src/browser_recovery.rs b/apps/photocraft-web/src/browser_recovery.rs
+new file mode 100644
+index 0000000..8690da8
+--- /dev/null
++++ b/apps/photocraft-web/src/browser_recovery.rs
+@@ -0,0 +1,102 @@
++//! Local-only recovery and clipboard services for the school browser host.
++use std::sync::{Arc, Mutex, PoisonError};
++use js_sys::{Array, Function, Object, Reflect, Uint8Array};
++use wasm_bindgen::{JsCast, JsValue};
++use wasm_bindgen_futures::JsFuture;
++use photocraft_ui_egui::{Recoverable, Services};
++const MAX_BYTES: u32 = 64 * 1024 * 1024;
++type Outcomes = Vec<(u64, u64, Result<(), String>)>;
++struct Entry { key: String, name: String, path: Option<String>, bytes: Vec<u8> }
++#[derive(Default)]
++struct State { entries: Vec<Entry>, outcomes: Outcomes }
++#[derive(Clone, Default)]
++pub struct Bridge(Arc<Mutex<State>>);
++fn js(error: JsValue) -> String { error.as_string().unwrap_or_else(|| format!("{error:?}")) }
++fn invoke(name: &str, argument: &JsValue) -> Result<js_sys::Promise, String> {
++    let host = web_sys::window().ok_or("no browser window")?.parent().map_err(js)?.ok_or("no host window")?;
++    let function: Function = Reflect::get(&host, &JsValue::from_str(name)).map_err(js)?.dyn_into().map_err(|_| "host feature unavailable")?;
++    let value = function.call1(&host, argument).map_err(js)?;
++    Ok(js_sys::Promise::resolve(&value))
++}
++fn field(value: &JsValue, name: &str) -> Result<JsValue, String> { Reflect::get(value, &JsValue::from_str(name)).map_err(js) }
++fn set(object: &Object, name: &str, value: &JsValue) -> Result<(), String> {
++    Reflect::set(object, &JsValue::from_str(name), value).map_err(js).map(|_| ())
++}
++pub async fn load() -> Option<Bridge> {
++    let promise = invoke("photocraftRecoveryLoad", &JsValue::NULL).ok()?;
++    let value = match JsFuture::from(promise).await {
++        Ok(value) => value,
++        Err(error) => { log::warn!("Browser recovery unavailable: {}", js(error)); return None; }
++    };
++    if !Array::is_array(&value) { return None; }
++    let values = Array::from(&value);
++    if values.length() > 16 { return None; }
++    let mut entries = Vec::new();
++    let mut total = 0u64;
++    for value in values.iter() {
++        let record = (|| -> Result<Entry, String> {
++            let key = field(&value, "key")?.as_string().ok_or("missing recovery key")?;
++            let name = field(&value, "name")?.as_string().ok_or("missing document name")?;
++            if key.len() > 256 || name.len() > 1024 { return Err("recovery metadata too long".into()); }
++            let data: Uint8Array = field(&value, "bytes")?.dyn_into().map_err(|_| "invalid snapshot bytes")?;
++            if data.length() > MAX_BYTES { return Err("recovery snapshot too large".into()); }
++            total = total.saturating_add(u64::from(data.length()));
++            if total > 128 * 1024 * 1024 { return Err("recovery data exceeds memory budget".into()); }
++            Ok(Entry { key, name, path: field(&value, "path")?.as_string(), bytes: data.to_vec() })
++        })();
++        match record { Ok(entry) => entries.push(entry), Err(error) => log::warn!("Recovery entry skipped: {error}") }
++    }
++    Some(Bridge(Arc::new(Mutex::new(State {entries, outcomes: Vec::new()}))))
++}
++pub fn attach(services: &mut Services, bridge: Option<Bridge>) {
++    let Some(bridge) = bridge else { return };
++    let saves = bridge.clone();
++    services.autosave = Some(Box::new(move |doc, revision, path| {
++        let bytes = photocraft_format::save_to_bytes(doc, &Default::default()).map_err(|error| error.to_string())?;
++        if bytes.len() > MAX_BYTES as usize { return Err("Recovery snapshot exceeds 64 MiB; download a .pcraft copy".into()); }
++        let object = Object::new();
++        set(&object, "docId", &JsValue::from_str(&doc.id.0.to_string()))?;
++        set(&object, "revision", &JsValue::from_str(&revision.to_string()))?;
++        set(&object, "name", &JsValue::from_str(&doc.name))?;
++        set(&object, "path", &path.map(JsValue::from_str).unwrap_or(JsValue::NULL))?;
++        set(&object, "bytes", &Uint8Array::from(bytes.as_slice()))?;
++        let promise = invoke("photocraftRecoverySave", &object)?;
++        let state = saves.clone();
++        let id = doc.id.0;
++        wasm_bindgen_futures::spawn_local(async move {
++            let result = JsFuture::from(promise).await.map(|_| ()).map_err(js);
++            state.0.lock().unwrap_or_else(PoisonError::into_inner).outcomes.push((id, revision, result));
++        });
++        Ok(())
++    }));
++    let results = bridge.clone();
++    services.autosave_results = Some(Box::new(move || {
++        std::mem::take(&mut results.0.lock().unwrap_or_else(PoisonError::into_inner).outcomes)
++    }));
++    services.recover = Some(Box::new(move || {
++        std::mem::take(&mut bridge.0.lock().unwrap_or_else(PoisonError::into_inner).entries)
++            .into_iter().map(|entry| Recoverable {
++                key: entry.key, name: entry.name, path: entry.path,
++                load: Box::new(move || photocraft_format::load_from_bytes(&entry.bytes).map_err(|error| error.to_string())),
++            }).collect()
++    }));
++    services.discard_autosave = Some(Box::new(|id| {
++        if let Ok(promise) = invoke("photocraftRecoveryDiscard", &JsValue::from_str(&id.to_string())) {
++            wasm_bindgen_futures::spawn_local(async move { let _ = JsFuture::from(promise).await; });
++        }
++    }));
++    services.adopt_autosave = Some(Box::new(|id, key| {
++        let object = Object::new();
++        if set(&object, "docId", &JsValue::from_str(&id.to_string())).is_err() || set(&object, "key", &JsValue::from_str(key)).is_err() { return; }
++        if let Ok(promise) = invoke("photocraftRecoveryAdopt", &object) {
++            wasm_bindgen_futures::spawn_local(async move { let _ = JsFuture::from(promise).await; });
++        }
++    }));
++}
++pub fn write_clipboard(bytes: &[u8]) -> Result<(), String> {
++    let promise = invoke("photocraftClipboardWrite", &Uint8Array::from(bytes))?;
++    wasm_bindgen_futures::spawn_local(async move {
++        if let Err(error) = JsFuture::from(promise).await { log::warn!("Browser clipboard write failed: {}", js(error)); }
++    });
++    Ok(())
++}
+diff --git a/apps/photocraft-web/src/main.rs b/apps/photocraft-web/src/main.rs
+index 6084619..9b92753 100644
+--- a/apps/photocraft-web/src/main.rs
++++ b/apps/photocraft-web/src/main.rs
+@@ -27,6 +27,9 @@ mod preset_bridge;
+ #[cfg(target_arch = "wasm32")]
+ mod indexed_presets;
+ 
++#[cfg(target_arch = "wasm32")]
++mod browser_recovery;
++
+ #[cfg(target_arch = "wasm32")]
+ mod web;
+ 
+diff --git a/apps/photocraft-web/src/web.rs b/apps/photocraft-web/src/web.rs
+index 5f6b71e..70961fe 100644
+--- a/apps/photocraft-web/src/web.rs
++++ b/apps/photocraft-web/src/web.rs
+@@ -81,6 +81,7 @@ pub fn start() {
+                 (None, bridge, Vec::new())
+             }
+         };
++        let recovery = crate::browser_recovery::load().await;
+         let pen_target = canvas.clone();
+         let runner = eframe::WebRunner::new();
+         // After the runner's own panic handler, so the message is kept and the runner's handler
+@@ -102,7 +103,14 @@ pub fn start() {
+                     let (session, warnings) = crate::preset_bridge::session(presets.clone());
+                     preset_warnings.extend(warnings);
+                     let drag = listen_drag(&pen_target);
+-                    let mut app = PhotocraftApp::new(session, services(inbox.clone(), place_inbox.clone(), drag_pos_service(pen_target.clone(), drag)));
++                    let mut app = PhotocraftApp::new(session, services(inbox.clone(), place_inbox.clone(), drag_pos_service(pen_target.clone(), drag), recovery.clone()));
++                    if recovery.is_some() {
++                        app.session.edit_prefs(|prefs| {
++                            prefs.file_handling.autosave = true;
++                            prefs.file_handling.autosave_minutes = 1;
++                            prefs.file_handling.recover_on_launch = true;
++                        });
++                    }
+                     if !preset_warnings.is_empty() {
+                         photocraft_ui_egui::notices::post(&mut app, i18n::t("Some brush presets could not be loaded"), preset_warnings, true, None);
+                     }
+@@ -499,8 +507,8 @@ impl eframe::App for WebShell {
+     }
+ }
+ 
+-fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egui::CursorPosFn) -> Services {
+-    Services {
++fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egui::CursorPosFn, recovery: Option<crate::browser_recovery::Bridge>) -> Services {
++    let mut services = Services {
+         screen_pick: screen_color_service(),
+         import: Some(Box::new(|name: &str, bytes: &[u8], opts: &photocraft_io::ImportOptions| {
+             photocraft_io::import_with_options(name, bytes, opts).map(|r| (r.document, r.warnings)).map_err(|e| e.to_string())
+@@ -545,6 +553,11 @@ fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egu
+             }
+         })),
+         write: Some(Box::new(|path: &str, bytes: &[u8]| download(path, bytes))),
++        clipboard_set_image: Some(Box::new(|w, h, rgba| {
++            let image = Image::from_u8(w, h, ChannelLayout::Rgba, rgba.to_vec()).map_err(|error| error.to_string())?;
++            let png = photocraft_codecs::encode(&image, photocraft_codecs::Format::Png, &EncodeOptions::default()).map_err(|error| error.to_string())?;
++            crate::browser_recovery::write_clipboard(&png)
++        })),
+         // A download may be cancelled and never reports back: it doesn't save the document.
+         write_unconfirmed: true,
+         encode_png: Some(Box::new(|w, h, rgba| {
+@@ -561,7 +574,9 @@ fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egu
+         save_gpu_memo: None,
+         shader_compiler: None,
+         ..Default::default()
+-    }
++    };
++    crate::browser_recovery::attach(&mut services, recovery);
++    services
+ }
+ 
+ const PREFS_KEY: &str = "photocraft.preferences";
+diff --git a/crates/ui-egui/src/menu_catalog.rs b/crates/ui-egui/src/menu_catalog.rs
+index d6db835..fd4b16d 100644
+--- a/crates/ui-egui/src/menu_catalog.rs
++++ b/crates/ui-egui/src/menu_catalog.rs
+@@ -547,6 +547,7 @@ pub static CATALOG: &[(&[&str], &str, Option<&str>, &str)] = &[
+     (&["Select"], "---", None, "---"),
+     (&["Select"], "Color Range…", None, "select.colorRange"),
+     (&["Select"], "Focus Area…", None, "select.focusArea"),
++    (&["Select"], "Remove Background", None, "layer.removeBackground"),
+     (&["Select"], "Subject", None, "select.subject"),
+     (&["Select"], "Sky", None, "select.sky"),
+     (&["Select"], "Select and Mask…", None, "select.selectAndMask"),
 diff --git a/crates/ui-egui/src/text/font_filters.rs b/crates/ui-egui/src/text/font_filters.rs
 index 5883860..d614e80 100644
 --- a/crates/ui-egui/src/text/font_filters.rs
