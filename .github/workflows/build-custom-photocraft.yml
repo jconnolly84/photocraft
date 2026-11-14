@@ -13,7 +13,7 @@ jobs:
     env:
       CARGO_BUILD_JOBS: '2'
       CARGO_INCREMENTAL: '0'
-      PHOTOCRAFT_BUILD_SHA: 45066c48292e92229ada3459a83453439514c83d-font-categories
+      PHOTOCRAFT_BUILD_SHA: 45066c48292e92229ada3459a83453439514c83d-school-recovery
       PHOTOCRAFT_BUILD_DATE: '2026-11-14'
     steps:
       - uses: actions/checkout@v4
@@ -25,7 +25,9 @@ jobs:
           path: upstream
           persist-credentials: false
       - name: Apply reviewed font category patch
-        run: python scripts/patch_photocraft_source.py upstream
+        run: |
+          python scripts/patch_photocraft_source.py upstream
+          python scripts/patch_extra_features.py upstream
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
