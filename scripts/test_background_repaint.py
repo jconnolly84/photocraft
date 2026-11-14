@@ -29,7 +29,7 @@ tests = r'''
     use super::*;
     fn idle() -> egui::Context {
         let ctx=egui::Context::default();
-        for _ in 0..8 {let _=ctx.run(egui::RawInput::default(), |_|{});}
+        for _ in 0..8 {let _=ctx.run_ui(egui::RawInput::default(), |_|{});}
         assert!(!ctx.has_requested_repaint(), "test starts with an idle UI");
         ctx
     }
