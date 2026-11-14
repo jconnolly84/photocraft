@@ -33,6 +33,7 @@ jobs:
         run: |
           python scripts/patch_photocraft_source.py upstream
           python scripts/patch_extra_features.py upstream
+          python scripts/patch_ai_background.py upstream
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
@@ -78,6 +79,7 @@ jobs:
       - run: |
           python scripts/patch_photocraft_source.py upstream
           python scripts/patch_extra_features.py upstream
+          python scripts/patch_ai_background.py upstream
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
