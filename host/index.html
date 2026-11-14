@@ -7,15 +7,22 @@
   <style>
     html, body { margin: 0; height: 100%; background: #252525; color: #eee; font: 13px system-ui; }
     body { display: flex; flex-direction: column; }
-    header { padding: 7px 12px; border-bottom: 1px solid #444; }
+    header { padding: 7px 12px; border-bottom: 1px solid #444; display: flex; align-items: center; gap: 12px; }
+    header[hidden] { display: none; }
+    header span { flex: 1; }
+    button { color: #eee; background: #383838; border: 1px solid #666; border-radius: 4px; padding: 3px 10px; cursor: pointer; }
+    button:hover { background: #505050; }
+    button:focus-visible { outline: 2px solid #9bceff; outline-offset: 2px; }
     a { color: #9bceff; }
     iframe { border: 0; width: 100%; flex: 1; min-height: 0; }
   </style>
   <script src="./shortcuts.js" defer></script>
+  <script src="./banner.js" defer></script>
 </head>
 <body>
-  <header>Browser shortcuts: Ctrl+D deselect · Ctrl+Alt+T transform ·
-    <a href="./photocraft/NOTICE" target="_blank" rel="noopener">PhotoCraft credits</a>
+  <header id="shortcut-banner"><span>Browser shortcuts: Ctrl+D deselect · Ctrl+Alt+T transform ·
+    <a href="./photocraft/NOTICE" target="_blank" rel="noopener">PhotoCraft credits</a></span>
+    <button id="dismiss-banner" type="button" aria-label="Dismiss shortcut message">Got it ×</button>
   </header>
   <iframe id="editor" title="PhotoCraft image editor"
     allow="fullscreen; clipboard-read; clipboard-write" allowfullscreen></iframe>
