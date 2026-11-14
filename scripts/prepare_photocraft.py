@@ -25,6 +25,22 @@ for original in source.rglob('*'):
     if original.is_file():
         copied = target / original.relative_to(source)
         assert hashlib.sha256(original.read_bytes()).digest() == hashlib.sha256(copied.read_bytes()).digest()
+# Host-supplied fonts use the upstream supported optional manifest mechanism.
+# Keep them separate from the checksum-verified release in the repository.
+font_library = root / 'font-library'
+families = set()
+for line in (font_library / 'fonts' / 'manifest.txt').read_text(encoding='utf-8').splitlines():
+    if not line.strip() or line.startswith('#'):
+        continue
+    family, style, path, scripts, license_id, license_path, expected, url = map(str.strip, line.split('|'))
+    for rel in (path, license_path):
+        assert rel.startswith('fonts/') and '..' not in Path(rel).parts
+        assert (font_library / rel).is_file(), f'Missing font asset: {rel}'
+    assert license_id in ('OFL-1.1', 'Apache-2.0')
+    assert hashlib.sha256((font_library / path).read_bytes()).hexdigest() == expected, path
+    families.add(family)
+shutil.copytree(font_library / 'fonts', target / 'fonts')
+print(f'Verified and staged {len(families)} font families with licences.')
 site = target.parent
 (site / '.nojekyll').touch()
 for asset in (root / 'host').iterdir():
