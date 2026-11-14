@@ -12,7 +12,7 @@ from fontTools.ttLib import TTFont
 ROOT = Path(__file__).resolve().parents[1]
 CRAFT = 'c1db6d1a8ed772191241c3d185e2104be84d8691'
 GOOGLE = 'cc39c4c2c304bc368c9b7c311ea2bcc6013299fe'
-CREATIVE = set('anton bebasneue oswald abrilfatface alfaslabone bangers bungee blackopsone cinzel cormorantgaramond dancingscript greatvibes lobster pacifico satisfy sacramento caveat indieflower permanentmarker shadowsintolight amaticsc specialelite rye creepster monoton orbitron pressstart2p righteous rubik quicksand comfortaa raleway archivoblack audiowide frederickathegreat courgette patrickhand kalam chewy luckiestguy'.split())
+CREATIVE = set('unifrakturcook unifrakturmaguntia pirataone grenzegotisch newrocker germaniaone anton bebasneue oswald abrilfatface alfaslabone bangers bungee blackopsone cinzel cormorantgaramond dancingscript greatvibes lobster pacifico satisfy sacramento caveat indieflower permanentmarker shadowsintolight amaticsc specialelite rye creepster monoton orbitron pressstart2p righteous rubik quicksand comfortaa raleway archivoblack audiowide frederickathegreat courgette patrickhand kalam chewy luckiestguy'.split())
 
 def read(url):
     with urlopen(url, timeout=90) as response:

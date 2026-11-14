@@ -4,6 +4,7 @@ import json
 
 ROOT = Path(__file__).resolve().parents[1]
 GROUPS = {
+    'Blackletter': 'UnifrakturCook|UnifrakturMaguntia|Pirata One|Grenze Gotisch|New Rocker|Germania One',
     'Serif': 'Abril Fatface|Caladea|Cinzel|Cormorant Garamond|Liberation Serif|Merriweather|Playfair Display|Source Serif 4',
     'Slab Serif': 'Alfa Slab One|Rye',
     'Sans Serif': 'Anton|Archivo Black|Bebas Neue|Carlito|Comfortaa|Inter|Lato|Liberation Sans|Montserrat|Nunito Sans|Open Sans|Oswald|Poppins|Quicksand|Raleway|Roboto|Rubik|Source Sans 3',

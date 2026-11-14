@@ -1,6 +1,6 @@
 # Fonts for the PhotoCraft web host
 
-66 families / 111 font files. Fonts load on demand
+72 families / 117 font files. Fonts load on demand
 through PhotoCraft's supported `fonts/manifest.txt`; they are not added to Wasm.
 Every family retains its licence beside its files. No proprietary Windows fonts
 are included. Font names are the fonts' real internal names, not Microsoft aliases.
@@ -21,6 +21,10 @@ Inkscape uses installed fonts; it does not define a universal font collection.
 These open fonts can also be installed on Windows for use in Inkscape.
 
 ## Selection
+
+- Blackletter: UnifrakturCook, UnifrakturMaguntia, Pirata One, Grenze Gotisch,
+  New Rocker and Germania One. All six are from the pinned Google Fonts source,
+  retain their SIL OFL licences, and appear in the native Blackletter category.
 
 - Everyday and editorial: Inter, Lato, Montserrat, Open Sans, Roboto, Poppins,
   Nunito Sans, Source Sans 3, Source Serif 4, Merriweather, Playfair Display,

@@ -100,12 +100,20 @@
     "category": "Decorative"
   },
   {
+    "family": "Germania One",
+    "category": "Blackletter"
+  },
+  {
     "family": "Glitch Goblin",
     "category": "Decorative"
   },
   {
     "family": "Great Vibes",
     "category": "Script"
+  },
+  {
+    "family": "Grenze Gotisch",
+    "category": "Blackletter"
   },
   {
     "family": "Help Me",
@@ -164,6 +172,10 @@
     "category": "Decorative"
   },
   {
+    "family": "New Rocker",
+    "category": "Blackletter"
+  },
+  {
     "family": "Nunito Sans",
     "category": "Sans Serif"
   },
@@ -190,6 +202,10 @@
   {
     "family": "Permanent Marker",
     "category": "Handwritten"
+  },
+  {
+    "family": "Pirata One",
+    "category": "Blackletter"
   },
   {
     "family": "Playfair Display",
@@ -258,6 +274,14 @@
   {
     "family": "Star Minor",
     "category": "Decorative"
+  },
+  {
+    "family": "UnifrakturCook",
+    "category": "Blackletter"
+  },
+  {
+    "family": "UnifrakturMaguntia",
+    "category": "Blackletter"
   },
   {
     "family": "Westhorn",

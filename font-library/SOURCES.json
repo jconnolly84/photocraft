@@ -578,6 +578,16 @@
       "sha256": "f8e2b58dd7a8c8e21e5d744b45876bce7e010a647c071c1ed42ff0e618d4ea59"
     },
     {
+      "path": "fonts/germaniaone/GermaniaOne-Regular.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/germaniaone/GermaniaOne-Regular.ttf",
+      "sha256": "3ee3d56584bab8c9e3f59cc3360aa8a36e219dcf0a9f3c8928e3da5a19277e3f"
+    },
+    {
+      "path": "fonts/germaniaone/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/germaniaone/OFL.txt",
+      "sha256": "b7574cd4c76770e5e3915d16bd93f09663bd77cb041a4ec09d824c52b540529a"
+    },
+    {
       "path": "fonts/greatvibes/GreatVibes-Regular.ttf",
       "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/greatvibes/GreatVibes-Regular.ttf",
       "sha256": "8d509802186f1b51572531ecf313e8098f9a5bfdfaca93f0c9b34467f9982d15"
@@ -586,6 +596,16 @@
       "path": "fonts/greatvibes/OFL.txt",
       "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/greatvibes/OFL.txt",
       "sha256": "61093a21f5e63dedf54222b3c09997e54c0fe43e3851d21386e02ddcbc246d49"
+    },
+    {
+      "path": "fonts/grenzegotisch/GrenzeGotisch[wght].ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/grenzegotisch/GrenzeGotisch%5Bwght%5D.ttf",
+      "sha256": "701b299d8dc002a2b4bea2ff0f1272c0e4081a2835914354804565c410d0c637"
+    },
+    {
+      "path": "fonts/grenzegotisch/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/grenzegotisch/OFL.txt",
+      "sha256": "bca29af2c3c9e142d11f523f414902ab8fb9ab8ffa3c34c63b6b72aa4e7d6acc"
     },
     {
       "path": "fonts/indieflower/IndieFlower-Regular.ttf",
@@ -638,6 +658,16 @@
       "sha256": "585c6d2da8bcd8ffa651e0016f2e992a6891b625143a46a1dacf00699a817d9a"
     },
     {
+      "path": "fonts/newrocker/NewRocker-Regular.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/newrocker/NewRocker-Regular.ttf",
+      "sha256": "28a499ce5b8bcf0652f8b2e25135183eaddf0c3c8c3e251259b075c71d1ef14c"
+    },
+    {
+      "path": "fonts/newrocker/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/newrocker/OFL.txt",
+      "sha256": "942d51cf079299e83e9dd7a9a37eb92260524e8d1d576b2f0b3f7ca207c53f8e"
+    },
+    {
       "path": "fonts/orbitron/OFL.txt",
       "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/orbitron/OFL.txt",
       "sha256": "ab609b0e110d622435ff337cdf233288556e011bbf9bd0550be98846c0630819"
@@ -676,6 +706,16 @@
       "path": "fonts/patrickhand/PatrickHand-Regular.ttf",
       "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/patrickhand/PatrickHand-Regular.ttf",
       "sha256": "0f173b3e6cb6d1af25babf7f0057c5ac4ee11f9992b0469bb817e967ef4ad0fc"
+    },
+    {
+      "path": "fonts/pirataone/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/pirataone/OFL.txt",
+      "sha256": "e8ad3f3de5baeff6bac6e711d8c406e0a6b8a61d2944741532d8965d893a2681"
+    },
+    {
+      "path": "fonts/pirataone/PirataOne-Regular.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/pirataone/PirataOne-Regular.ttf",
+      "sha256": "5347a2e155589ecf667d4b766613c8ee003edde9f83717fd24c09599a4b1ecc0"
     },
     {
       "path": "fonts/pressstart2p/OFL.txt",
@@ -766,6 +806,26 @@
       "path": "fonts/shadowsintolight/ShadowsIntoLight.ttf",
       "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/shadowsintolight/ShadowsIntoLight.ttf",
       "sha256": "1347863151acdc00fa281daaba1a3543dbce5870b55f9cf7479a15bb84007681"
+    },
+    {
+      "path": "fonts/unifrakturcook/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/unifrakturcook/OFL.txt",
+      "sha256": "99d2f30e282d6174af8ff68597f58bb53c0dcb2b104a4c1b8d19da49021d00d3"
+    },
+    {
+      "path": "fonts/unifrakturcook/UnifrakturCook-Bold.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/unifrakturcook/UnifrakturCook-Bold.ttf",
+      "sha256": "ea002fa9c65f1a612af100e00d87ab65f16381f450020ec3d021f3dbf79a6dcd"
+    },
+    {
+      "path": "fonts/unifrakturmaguntia/OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/unifrakturmaguntia/OFL.txt",
+      "sha256": "96199bf9ff12dd471a66911dee95440737b437e7f5a6fd30e9e950c16d66e8df"
+    },
+    {
+      "path": "fonts/unifrakturmaguntia/UnifrakturMaguntia-Book.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/cc39c4c2c304bc368c9b7c311ea2bcc6013299fe/ofl/unifrakturmaguntia/UnifrakturMaguntia-Book.ttf",
+      "sha256": "d64afc0547059dd2e4a78da48bda0aba0a9901be58c7f8c201a8b2b6b4492cc8"
     }
   ]
 }
