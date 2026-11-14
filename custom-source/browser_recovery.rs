@@ -100,3 +100,12 @@ pub fn write_clipboard(bytes: &[u8]) -> Result<(), String> {
     });
     Ok(())
 }
+
+/// Start the host's asynchronous clipboard read while the menu click is active.
+/// Returning false leaves PhotoCraft's native editable clipboard route intact.
+pub fn paste_clipboard() -> Result<bool, String> {
+    let host = web_sys::window().ok_or("no browser window")?.parent().map_err(js)?.ok_or("no host window")?;
+    let value = Reflect::get(&host, &JsValue::from_str("photocraftBrowserPaste")).map_err(js)?;
+    let Ok(function) = value.dyn_into::<Function>() else { return Ok(false) };
+    function.call0(&host).map_err(js).map(|value| value.as_bool().unwrap_or(false))
+}

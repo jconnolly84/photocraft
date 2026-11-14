@@ -55,3 +55,30 @@ jobs:
           path: upstream/dist/release/photocraft-web-0.23.1.zip
           if-no-files-found: error
           retention-days: 30
+
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: storytold/photocraft
+          ref: 45066c48292e92229ada3459a83453439514c83d
+          path: upstream
+          persist-credentials: false
+      - run: |
+          python scripts/patch_photocraft_source.py upstream
+          python scripts/patch_extra_features.py upstream
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: upstream
+          key: photocraft-custom-regression
+      - name: Test actual menu and Smart Object background removal
+        working-directory: upstream
+        run: |
+          cargo test -p photocraft-engine --lib cutout_cmds::tests
+          cargo test -p photocraft-ui-egui --lib browser_paste_menu_tests
