@@ -15,10 +15,11 @@ const frame = {contentDocument: {getElementById: () => canvas},
 const button = {addEventListener: (name, fn) => {buttonEvents[name] = fn;}};
 const status = {};
 const image = {type: 'image/png', name: 'image.png'};
+const hostWindow = {};
 const clipboard = {read: async () => [{types: ['text/html', 'image/png'], getType: async () => image}]};
 vm.runInNewContext(fs.readFileSync('host/image-paste.js', 'utf8'), {
   document: {getElementById: id => id === 'editor' ? frame : id === 'paste-image' ? button : status},
-  navigator: {clipboard}, File,
+  navigator: {clipboard}, File, window: hostWindow,
 });
 function paste(items) {
   const event = {clipboardData: {items}, preventDefault() {this.prevented = true;},
@@ -42,6 +43,12 @@ function paste(items) {
   await buttonEvents.click();
   assert.equal(deliveries.length, 3);
   assert.equal(deliveries[2].dataTransfer.files[0].type, 'image/png');
+  hostWindow.photocraftBrowserCopied();
+  assert.equal(hostWindow.photocraftBrowserPaste(), false, 'Native menu keeps editable internal copies');
+  clipboardEvents.blur();
+  assert.equal(hostWindow.photocraftBrowserPaste(), true, 'Menu starts browser read after external focus');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(deliveries.length, 4, 'Native menu and toolbar deliver the same image path');
   clipboard.read = async () => {const error = new Error(); error.name = 'NotAllowedError'; throw error;};
   await buttonEvents.click();
   assert.match(status.textContent, /blocked/);

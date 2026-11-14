@@ -170,6 +170,7 @@
     notice(granted ? 'Browser storage protection is enabled. Keep downloaded copies too.' : 'Storage protection was not granted. Keep downloaded copies of your work.');
   });
   window.photocraftClipboardWrite = async bytes => {
+    window.photocraftBrowserCopied?.();
     try {
       if (!navigator.clipboard?.write || !window.ClipboardItem) throw new Error('This browser cannot export clipboard images.');
       await navigator.clipboard.write([new ClipboardItem({'image/png': new Blob([bytes], {type: 'image/png'})})]);

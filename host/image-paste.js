@@ -3,6 +3,8 @@
   const frame = document.getElementById('editor');
   const button = document.getElementById('paste-image');
   const status = document.getElementById('paste-image-status');
+  let preferInternalClipboard = false;
+  window.photocraftBrowserCopied = () => {preferInternalClipboard = true;};
   const supported = type => /^image\/(png|jpeg|webp|gif|bmp|svg\+xml)$/i.test(type);
 
   function deliver(files) {
@@ -23,7 +25,7 @@
   }
   frame.addEventListener('load', () => {
     const win = frame.contentWindow;
-    let preferInternalClipboard = false;
+    preferInternalClipboard = false;
     // PhotoCraft's editable layer clipboard may not be exported to the browser.
     // Keep a copy/paste made wholly inside the editor on its native path.
     win.addEventListener('keydown', event => {
@@ -45,7 +47,7 @@
       } catch (error) { status.textContent = error.message; }
     }, {capture: true});
   });
-  button.addEventListener('click', async () => {
+  async function pasteFromBrowser() {
     if (!navigator.clipboard?.read) {
       status.textContent = 'Click the editor and press Ctrl+V, or use Open to choose an image.';
       return;
@@ -68,5 +70,13 @@
         ? 'Clipboard access was blocked. Allow it in Chrome, or click the editor and press Ctrl+V.'
         : error.message;
     } finally { button.disabled = false; }
-  });
+  }
+  button.addEventListener('click', pasteFromBrowser);
+  window.photocraftBrowserPaste = () => {
+    // Native editable copies keep their layers/text; external images use the
+    // same asynchronous decoder as Ctrl+V and the toolbar button.
+    if (preferInternalClipboard) return false;
+    void pasteFromBrowser();
+    return true;
+  };
 })();
