@@ -15,9 +15,14 @@
     button:focus-visible { outline: 2px solid #9bceff; outline-offset: 2px; }
     a { color: #9bceff; }
     iframe { border: 0; width: 100%; flex: 1; min-height: 0; }
+    #font-tools { position: fixed; right: 12px; bottom: 24px; z-index: 10; background: #252525; border: 1px solid #666; border-radius: 5px; }
+    #font-tools summary { padding: 5px 10px; cursor: pointer; }
+    #font-tools[open] { width: 300px; padding: 8px; box-shadow: 0 3px 15px #0008; }
+    #font-tools p { line-height: 1.4; }
   </style>
   <script src="./shortcuts.js" defer></script>
   <script src="./banner.js" defer></script>
+  <script src="./local-fonts.js" defer></script>
 </head>
 <body>
   <header id="shortcut-banner"><span>Browser shortcuts: Ctrl+D deselect · Ctrl+Alt+T transform ·
@@ -26,5 +31,13 @@
   </header>
   <iframe id="editor" title="PhotoCraft image editor"
     allow="fullscreen; clipboard-read; clipboard-write" allowfullscreen></iframe>
+  <details id="font-tools">
+    <summary>PC fonts</summary>
+    <p>Use fonts installed on this PC. Font names and files stay in this browser session; they are not uploaded.</p>
+    <p><strong>Save your work first.</strong> Enabling or disabling PC fonts restarts the editor.</p>
+    <button id="enable-local-fonts" type="button">Use fonts from this PC</button>
+    <button id="disable-local-fonts" type="button" hidden>Stop using PC fonts</button>
+    <p id="local-font-status" role="status" aria-live="polite"></p>
+  </details>
 </body>
 </html>
