@@ -1,0 +1,19 @@
+name: Test custom PhotoCraft font categories
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: storytold/photocraft
+          ref: 45066c48292e92229ada3459a83453439514c83d
+          path: upstream
+          persist-credentials: false
+      - run: python scripts/patch_photocraft_source.py upstream
+      - uses: dtolnay/rust-toolchain@stable
+      - run: python scripts/test_custom_font_categories.py upstream
