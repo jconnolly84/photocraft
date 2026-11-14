@@ -1,5 +1,9 @@
 # PhotoCraft browser deployment
 
+The deployment also supports the user-authorized custom v0.23.1 font-category
+build; see `CUSTOM-BUILD.md` and `custom-build/BUILD.json` when present. The original
+release below remains unchanged in the repository for provenance and rollback.
+
 Official project: https://github.com/storytold/photocraft
 
 Release: https://github.com/storytold/photocraft/releases/tag/v0.23.1

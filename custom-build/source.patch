@@ -1,0 +1,185 @@
+diff --git a/crates/ui-egui/src/text/font_filters.rs b/crates/ui-egui/src/text/font_filters.rs
+index 5883860..d614e80 100644
+--- a/crates/ui-egui/src/text/font_filters.rs
++++ b/crates/ui-egui/src/text/font_filters.rs
+@@ -54,11 +54,32 @@ pub(crate) fn traits(family: &str) -> Option<FamilyTraits> {
+         return t.clone();
+     }
+     // Only once the background font scan is done: never block the UI on it.
+-    let t = photocraft_text::try_shared()?.lock().unwrap_or_else(PoisonError::into_inner).fonts.family_traits(family);
++    let loaded = photocraft_text::try_shared()
++        .and_then(|engine| engine.lock().unwrap_or_else(PoisonError::into_inner).fonts.family_traits(family));
++    let t = with_host_class(family, loaded);
+     map.insert(family.to_string(), t.clone());
+     t
+ }
+ 
++// Host classifications are available before a served font is fetched. Keep its real
++// format, PANOSE and weight once loaded; the curated class remains consistent.
++fn with_host_class(family: &str, loaded: Option<FamilyTraits>) -> Option<FamilyTraits> {
++    let class = host_class(family);
++    match (loaded, class) {
++        (Some(mut traits), Some(class)) => {
++            traits.class = Some(class);
++            Some(traits)
++        }
++        (Some(traits), None) => Some(traits),
++        (None, Some(class)) => Some(FamilyTraits {
++            class: Some(class), format: FontFormat::TrueType, panose: [0; 10], weight: 400,
++        }),
++        (None, None) => None,
++    }
++}
++
++include!("host_font_classes.rs");
++
+ /// Narrow and order the menu's `rows` by `filters`. `current` is the font Show Similar Fonts
+ /// compares with; `lookup` gives a family's traits. Returns false when Show Similar Fonts is on
+ /// but the current font has nothing to compare (its rows are then left as they were).
+@@ -202,6 +223,22 @@ pub(crate) fn lookup_in(map: Option<Arc<TraitsMap>>) -> impl Fn(&str) -> Option<
+ mod tests {
+     use super::*;
+ 
++    #[test]
++    fn host_categories_work_before_download_and_keep_loaded_traits() {
++        let serif = with_host_class("Liberation Serif", None).expect("catalog family");
++        assert_eq!(serif.class, Some(FontClass::Serif));
++        let decorative = with_host_class("Star Minor", None).expect("catalog family");
++        assert_eq!(decorative.class, Some(FontClass::Decorative));
++        let loaded = FamilyTraits { class: None, format: FontFormat::Variable, panose: [2; 10], weight: 700 };
++        let completed = with_host_class("Inter", Some(loaded.clone())).expect("known family");
++        assert_eq!(completed.class, Some(FontClass::SansSerif));
++        assert_eq!(completed.format, loaded.format);
++        assert_eq!(completed.panose, loaded.panose);
++        assert_eq!(completed.weight, loaded.weight);
++        assert_eq!(with_host_class("Unknown Family", None), None);
++        assert_eq!(with_host_class("Unknown Family", Some(loaded.clone())), Some(loaded));
++    }
++
+     fn t(class: FontClass, format: FontFormat, panose: [u8; 10], weight: u16) -> Option<FamilyTraits> {
+         Some(FamilyTraits { class: Some(class), format, panose, weight })
+     }
+diff --git a/crates/ui-egui/src/text/host_font_classes.rs b/crates/ui-egui/src/text/host_font_classes.rs
+new file mode 100644
+index 0000000..4f637bc
+--- /dev/null
++++ b/crates/ui-egui/src/text/host_font_classes.rs
+@@ -0,0 +1,118 @@
++fn host_class(family: &str) -> Option<FontClass> {
++    match family {
++        "Abril Fatface" => Some(FontClass::Serif),
++        "Alfa Slab One" => Some(FontClass::SlabSerif),
++        "Algerian" => Some(FontClass::Decorative),
++        "Amatic SC" => Some(FontClass::Handwritten),
++        "Anton" => Some(FontClass::SansSerif),
++        "Aptos" => Some(FontClass::SansSerif),
++        "Aptos Display" => Some(FontClass::SansSerif),
++        "Archivo Black" => Some(FontClass::SansSerif),
++        "Arial" => Some(FontClass::SansSerif),
++        "Arial Black" => Some(FontClass::SansSerif),
++        "Audiowide" => Some(FontClass::Decorative),
++        "Bad Comic" => Some(FontClass::Decorative),
++        "Bahnschrift" => Some(FontClass::SansSerif),
++        "Bangers" => Some(FontClass::Decorative),
++        "Baskerville Old Face" => Some(FontClass::Serif),
++        "Bebas Neue" => Some(FontClass::SansSerif),
++        "Black Ops One" => Some(FontClass::Decorative),
++        "Blackcraft" => Some(FontClass::Decorative),
++        "Book Antiqua" => Some(FontClass::Serif),
++        "Bradley Hand ITC" => Some(FontClass::Handwritten),
++        "Broadway" => Some(FontClass::Decorative),
++        "Brush Script MT" => Some(FontClass::Script),
++        "Bubblez Graffiti" => Some(FontClass::Decorative),
++        "Bungee" => Some(FontClass::Decorative),
++        "Caladea" => Some(FontClass::Serif),
++        "Calibri" => Some(FontClass::SansSerif),
++        "Cambria" => Some(FontClass::Serif),
++        "Carlito" => Some(FontClass::SansSerif),
++        "Castellar" => Some(FontClass::Decorative),
++        "Caveat" => Some(FontClass::Handwritten),
++        "Century Gothic" => Some(FontClass::SansSerif),
++        "Chewy" => Some(FontClass::Decorative),
++        "Chiller" => Some(FontClass::Decorative),
++        "Cinzel" => Some(FontClass::Serif),
++        "Comfortaa" => Some(FontClass::SansSerif),
++        "Comic Sans MS" => Some(FontClass::Handwritten),
++        "Consolas" => Some(FontClass::Monospace),
++        "Constantia" => Some(FontClass::Serif),
++        "Copperplate Gothic Bold" => Some(FontClass::Decorative),
++        "Copperplate Gothic Light" => Some(FontClass::Decorative),
++        "Cormorant Garamond" => Some(FontClass::Serif),
++        "Courgette" => Some(FontClass::Script),
++        "Courier New" => Some(FontClass::Monospace),
++        "Creepster" => Some(FontClass::Decorative),
++        "Curlz MT" => Some(FontClass::Decorative),
++        "Dancing Script" => Some(FontClass::Script),
++        "Drybrush" => Some(FontClass::Handwritten),
++        "Edwardian Script ITC" => Some(FontClass::Script),
++        "Fredericka the Great" => Some(FontClass::Decorative),
++        "Garamond" => Some(FontClass::Serif),
++        "Georgia" => Some(FontClass::Serif),
++        "Glitch Goblin" => Some(FontClass::Decorative),
++        "Great Vibes" => Some(FontClass::Script),
++        "Harrington" => Some(FontClass::Decorative),
++        "Help Me" => Some(FontClass::Decorative),
++        "Impact" => Some(FontClass::SansSerif),
++        "Indie Flower" => Some(FontClass::Handwritten),
++        "Inter" => Some(FontClass::SansSerif),
++        "Jokerman" => Some(FontClass::Decorative),
++        "Kalam" => Some(FontClass::Handwritten),
++        "Lato" => Some(FontClass::SansSerif),
++        "Liberation Mono" => Some(FontClass::Monospace),
++        "Liberation Sans" => Some(FontClass::SansSerif),
++        "Liberation Serif" => Some(FontClass::Serif),
++        "Lobster" => Some(FontClass::Script),
++        "Lucida Console" => Some(FontClass::Monospace),
++        "Luckiest Guy" => Some(FontClass::Decorative),
++        "Merriweather" => Some(FontClass::Serif),
++        "Monoton" => Some(FontClass::Decorative),
++        "Monotype Corsiva" => Some(FontClass::Script),
++        "Montserrat" => Some(FontClass::SansSerif),
++        "Neon Sans" => Some(FontClass::Decorative),
++        "Nunito Sans" => Some(FontClass::SansSerif),
++        "Old English Text MT" => Some(FontClass::Blackletter),
++        "Open Sans" => Some(FontClass::SansSerif),
++        "Orbitron" => Some(FontClass::Decorative),
++        "Oswald" => Some(FontClass::SansSerif),
++        "Pacifico" => Some(FontClass::Script),
++        "Palatino Linotype" => Some(FontClass::Serif),
++        "Papyrus" => Some(FontClass::Decorative),
++        "Patrick Hand" => Some(FontClass::Handwritten),
++        "Permanent Marker" => Some(FontClass::Handwritten),
++        "Playfair Display" => Some(FontClass::Serif),
++        "Poppins" => Some(FontClass::SansSerif),
++        "Press Start 2P" => Some(FontClass::Decorative),
++        "Quicksand" => Some(FontClass::SansSerif),
++        "Raleway" => Some(FontClass::SansSerif),
++        "Ravie" => Some(FontClass::Decorative),
++        "Righteous" => Some(FontClass::Decorative),
++        "Roboto" => Some(FontClass::SansSerif),
++        "Rockwell" => Some(FontClass::SlabSerif),
++        "Rockwell Extra Bold" => Some(FontClass::SlabSerif),
++        "Rubik" => Some(FontClass::SansSerif),
++        "Rye" => Some(FontClass::SlabSerif),
++        "Sacramento" => Some(FontClass::Script),
++        "Satisfy" => Some(FontClass::Script),
++        "Segoe Print" => Some(FontClass::Handwritten),
++        "Segoe Script" => Some(FontClass::Script),
++        "Segoe UI" => Some(FontClass::SansSerif),
++        "Segoe UI Variable" => Some(FontClass::SansSerif),
++        "Shadows Into Light" => Some(FontClass::Handwritten),
++        "Showcard Gothic" => Some(FontClass::Decorative),
++        "Source Sans 3" => Some(FontClass::SansSerif),
++        "Source Serif 4" => Some(FontClass::Serif),
++        "Special Elite" => Some(FontClass::Decorative),
++        "Speed Freak" => Some(FontClass::Decorative),
++        "Star Minor" => Some(FontClass::Decorative),
++        "Stencil" => Some(FontClass::Decorative),
++        "Tahoma" => Some(FontClass::SansSerif),
++        "Times New Roman" => Some(FontClass::Serif),
++        "Trebuchet MS" => Some(FontClass::SansSerif),
++        "Verdana" => Some(FontClass::SansSerif),
++        "Westhorn" => Some(FontClass::Decorative),
++        _ => None,
++    }
++}

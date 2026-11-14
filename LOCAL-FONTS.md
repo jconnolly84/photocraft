@@ -41,10 +41,11 @@ API reference: https://developer.chrome.com/docs/capabilities/web-apis/local-fon
 
 The persistent top toolbar contains **Fonts & import** and **Full screen**.
 The font panel includes the installed-font permission button and an independently
-categorized browser for all 56 hosted font families. Select a category, copy a
-family name and paste it into the Type tool's font field. This does not change
-the official app's own filter logic: unread served fonts have no traits until
-loaded, and some fonts carry no classification metadata at all.
+categorized browser for all hosted font families. Select a category, copy a
+family name and paste it into the Type tool's font field. The custom build also
+fixes PhotoCraft's own category menu: every hosted family has a class before its
+font file downloads. Common Windows fonts have class hints too. Other local fonts
+use their embedded metadata once loaded. See `CUSTOM-BUILD.md`.
 
 The fullscreen control uses the browser Fullscreen API and changes to **Exit full
 screen** when active; Esc also exits. If a browser or policy blocks the request,

@@ -31,6 +31,7 @@
   <script src="./local-fonts.js" defer></script>
   <script src="./font-browser.js" defer></script>
   <script src="./fullscreen.js" defer></script>
+  <script src="./image-paste.js" defer></script>
 </head>
 <body>
   <header id="shortcut-banner"><span>Browser shortcuts: Ctrl+D deselect · Ctrl+Alt+T transform ·
@@ -38,6 +39,8 @@
     <button id="dismiss-banner" type="button" aria-label="Dismiss shortcut message">Got it ×</button>
   </header>
   <nav id="host-toolbar" aria-label="Editor controls">
+  <button id="paste-image" type="button">Paste image</button>
+  <span id="paste-image-status" role="status" aria-live="polite"></span>
   <details id="font-tools">
     <summary>Fonts &amp; import</summary>
     <h2>Fonts from this PC</h2>

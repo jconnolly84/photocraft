@@ -1,0 +1,2 @@
+photocraft-parts 1
+photocraft-web-1b75ba1b07f3b58e.part-aa

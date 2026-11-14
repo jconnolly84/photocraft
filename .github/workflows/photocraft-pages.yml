@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'photocraft/**'
+      - 'custom-build/**'
       - 'host/**'
       - 'font-library/**'
       - 'scripts/prepare_photocraft.py'
@@ -40,6 +41,7 @@ jobs:
         run: |
           node scripts/test_shortcuts.cjs
           node scripts/test_local_fonts.cjs
+          node scripts/test_image_paste.cjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
