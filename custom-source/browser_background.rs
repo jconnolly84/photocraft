@@ -11,6 +11,7 @@ struct Outcome { document: u64, revision: u64, layer: u64, bounds: [i32; 4], res
 thread_local! {
     static BUSY: Cell<bool> = const {Cell::new(false)};
     static DONE: RefCell<Vec<Outcome>> = const {RefCell::new(Vec::new())};
+    static WAKE: RefCell<Option<egui::Context>> = const {RefCell::new(None)};
 }
 fn error(value: JsValue) -> String {value.as_string().unwrap_or_else(|| format!("{value:?}"))}
 fn parent_function(name: &str) -> Result<(web_sys::Window, Function), String> {
@@ -45,10 +46,16 @@ pub fn start(doc: &Document, layer: u64, revision: u64) -> Result<(), String> {
         }.await;
         DONE.with(|done| done.borrow_mut().push(Outcome {document, revision, layer, bounds, result}));
         BUSY.with(|busy| busy.set(false));
+        // A completed promise can arrive between idle logic ticks. Wake a real
+        // UI paint instead of waiting for another mouse or keyboard event.
+        WAKE.with(|wake| {
+            if let Some(ctx) = wake.borrow().as_ref() {ctx.request_repaint();}
+        });
     });
     Ok(())
 }
 pub fn poll(app: &mut PhotocraftApp, ctx: &egui::Context) {
+    WAKE.with(|wake| *wake.borrow_mut() = Some(ctx.clone()));
     for outcome in DONE.with(|done| std::mem::take(&mut *done.borrow_mut())) {
         let result = outcome.result.and_then(|alpha| photocraft_engine::cutout_cmds::apply_model_mask(&mut app.session, outcome.document, outcome.revision, outcome.layer, outcome.bounds, alpha).map_err(|e| e.to_string()));
         let (message, success) = match result {
@@ -57,6 +64,9 @@ pub fn poll(app: &mut PhotocraftApp, ctx: &egui::Context) {
         };
         app.ui.status = message.clone();
         app.ui.status_error = !success;
+        // Session edits happen in logic; request the next UI pass explicitly
+        // so the changed document revision reaches the canvas immediately.
+        ctx.request_repaint();
         if let Ok((host, function)) = parent_function("photocraftBackgroundComplete") {
             let _ = function.call1(&host, &JsValue::from_str(&message));
         }
