@@ -26,7 +26,7 @@ vm.runInNewContext(fs.readFileSync('host/local-font-worker.js', 'utf8'), {
   URL, Response, Request, MessageChannel, ArrayBuffer, Set, setTimeout, clearTimeout,
   fetch: async request => {
     networkCalls++;
-    assert.equal(new URL(request.url).pathname, '/school/photocraft/fonts/manifest.txt');
+    assert.match(new URL(request.url).pathname, /^\/school\/(photocraft|build-\d+)\/fonts\/manifest.txt$/);
     return new Response('Arial | Regular | fonts/hosted.ttf\nLobster | Regular | fonts/lobster.ttf\n');
   },
 });
@@ -55,6 +55,11 @@ async function fetchRoute(path, clientId = 'editor', method = 'GET') {
   assert((await normal.text()).includes('fonts/hosted.ttf'));
   assert.equal(await fetchRoute('photocraft/app/app.part-aa'), undefined);
   assert.equal(await fetchRoute('photocraft/fonts/manifest.txt', 'editor', 'POST'), undefined);
-  assert.equal(networkCalls, 2, 'Only hosted manifests may reach the network');
+  clients.set('versioned-editor', {url: origin + 'build-123/?local_fonts=owner'});
+  const versioned = await fetchRoute('build-123/fonts/__local/ArialMT.ttf', 'versioned-editor');
+  assert.deepEqual(new Uint8Array(await versioned.arrayBuffer()), fixture);
+  const versionedManifest = await fetchRoute('build-123/fonts/manifest.txt', 'versioned-editor');
+  assert((await versionedManifest.text()).includes('fonts/__local/ArialMT.ttf'));
+  assert.equal(networkCalls, 3, 'Only hosted manifests may reach the network');
   console.log('Local manifest merging, exact font bytes, session isolation, no-store, no font uploads and passthrough checks passed.');
 })().catch(error => {console.error(error); process.exitCode = 1;});

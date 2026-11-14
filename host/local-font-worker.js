@@ -6,9 +6,7 @@ self.addEventListener('message', event => {
     event.ports[0].postMessage({ownerId: event.source.id});
   }
 });
-const base = new URL('./photocraft/', self.registration.scope);
-const manifestPath = base.pathname + 'fonts/manifest.txt';
-const localPrefix = base.pathname + 'fonts/__local/';
+const base = new URL('./', self.registration.scope);
 const clean = value => typeof value === 'string' && value.length > 0 && !/[|\r\n\x00-\x1f]/.test(value);
 
 async function requestOwner(clientId, action, name) {
@@ -52,7 +50,7 @@ async function manifest(event) {
 
 async function fontBytes(event, url) {
   try {
-    const encoded = url.pathname.slice(localPrefix.length);
+    const encoded = url.pathname.split('/fonts/__local/')[1] || '';
     if (!encoded.endsWith('.ttf') || encoded.includes('/')) throw new Error('Invalid local font URL');
     const name = decodeURIComponent(encoded.slice(0, -4));
     const {bytes} = await requestOwner(event.clientId, 'bytes', name);
@@ -65,6 +63,8 @@ async function fontBytes(event, url) {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (url.origin !== base.origin || event.request.method !== 'GET') return;
-  if (url.pathname === manifestPath) event.respondWith(manifest(event));
-  else if (url.pathname.startsWith(localPrefix)) event.respondWith(fontBytes(event, url));
+  const relative = url.pathname.slice(base.pathname.length);
+  if (!url.pathname.startsWith(base.pathname)) return;
+  if (/^(photocraft|build-\d+)\/fonts\/manifest\.txt$/.test(relative)) event.respondWith(manifest(event));
+  else if (/^(photocraft|build-\d+)\/fonts\/__local\//.test(relative)) event.respondWith(fontBytes(event, url));
 });

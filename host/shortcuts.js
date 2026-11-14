@@ -34,5 +34,5 @@
     win.addEventListener('keyup', handle, { capture: true, passive: false });
   });
   // Keep renderer flags (?webgl, ?cpu) and any upstream fragment usable.
-  frame.src = './photocraft/' + window.location.search + window.location.hash;
+  frame.src = (window.PHOTOCRAFT_EDITOR_PATH || './photocraft/') + window.location.search + window.location.hash;
 })();

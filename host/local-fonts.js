@@ -35,7 +35,7 @@
   });
 
   function restart(id) {
-    const url = new URL('./photocraft/', window.location.href);
+    const url = new URL(window.PHOTOCRAFT_EDITOR_PATH || './photocraft/', window.location.href);
     url.search = window.location.search;
     url.searchParams.delete('local_fonts');
     if (id) url.searchParams.set('local_fonts', id);

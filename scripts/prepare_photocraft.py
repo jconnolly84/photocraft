@@ -60,4 +60,16 @@ site = target.parent
 for asset in (root / 'host').iterdir():
     if asset.is_file():
         shutil.copyfile(asset, site / asset.name)
+editor_path = './photocraft/'
+if custom_metadata.exists():
+    run_id = str(metadata['workflow_run'])
+    assert run_id.isdigit(), 'Unexpected workflow identifier'
+    build_path = f'build-{run_id}'
+    # Separate directory per compiled app: Pages cannot revalidate the upstream's
+    # fixed parts.txt and glue URLs on demand, so never reuse those URLs across builds.
+    shutil.copytree(target, site / build_path)
+    editor_path = f'./{build_path}/'
+(site / 'build-config.js').write_text('window.PHOTOCRAFT_EDITOR_PATH = ' + json.dumps(editor_path) + ';\n', encoding='utf-8')
+index = site / 'index.html'
+index.write_text(index.read_text(encoding='utf-8').replace('./build-config.js', './build-config.js?path=' + editor_path.strip('./').replace('/', '-')), encoding='utf-8')
 print('Verified all build bytes and staged PhotoCraft at /photocraft/.')
