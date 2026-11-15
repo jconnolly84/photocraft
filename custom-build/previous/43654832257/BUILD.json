@@ -1,0 +1,41 @@
+{
+  "upstream_version": "v0.23.1",
+  "upstream_commit": "45066c48292e92229ada3459a83453439514c83d",
+  "workflow_run": "43654832257",
+  "archive_sha256": "04a95840bbb10d9366d0049aa2136d74ce5daf6a5b32949b6b6a2760287bdc40",
+  "patch": "scripts/patch_photocraft_source.py",
+  "patches": [
+    "scripts/patch_photocraft_source.py",
+    "scripts/patch_extra_features.py",
+    "scripts/patch_ai_background.py",
+    "scripts/patch_default_panels.py"
+  ],
+  "files": {
+    "HOSTING.md": "fe354f01f644c1e6d712102dfd33ae4317a56abce44b1cd7b4671abe3441bf82",
+    "_headers": "1b27bd384ec040e6f0aa02a16aca532952c9b7ad4d5ee4165a2e3d95bcfdedcf",
+    "index.html": "a176bc20bf6a974deea2481df5f973f4216a9a74e93188dd173d340ef0a74779",
+    ".htaccess": "58a72c925b83271d5ac17fdddce81f75c68acd074e38f18e5dc5f3583fe6fd7c",
+    "LICENSE-MIT": "1a8f66d8a86b146f5336fa0d4b1186576c8aa98e60823080c85c7811cfd810af",
+    "photocraft-web-boot-5723a4242c4ca4f2.js": "27d186c28bdb6a1ed07f7e8c2742f8778d8c7cfdb4185e57344f564c5431ad11",
+    "NOTICE": "9225763160f7908a97bb4e67e38494e4932cf8bafec18fac6345506825d713ee",
+    "photocraft-web-boot-5723a4242c4ca4f2_bg.wasm": "36f387d4f65b2e4f7ade33efb25b1c801fa958bf0187991dc818bd730838e09b",
+    "README.md": "cb6aebf5951516ec4a9e8f0aef978b602b5c8dcde50f85116ac457f6d0fa8ad8",
+    "snippets/eframe-d31a8450ea12dfc1/inline0.js": "22a98f9d0c5a0532d291bdc9a3050439420b3d11143b4568fcfd3c66fff36995",
+    "ATTRIBUTION.md": "ef42af719a7282ff5b505039eeaae9ae5aeff45615b8b94131200656ba297c0a",
+    "LICENSE-APACHE": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+    "app/photocraft-web.js": "9f2ed75701ba3444482536e1fd73beefbc2caa54280c95be70674512a6399761",
+    "app/photocraft-web-7d82b935127bfa61.part-aa": "903e6d82cb388f980d7133c7dbc965f7dde1e68a1651f17243b8bcae690bd956",
+    "app/parts.txt": "1b7c6f4385d8f46d0b69d14edcbd3181946bce78f26d0f1dd492c3bce245c70d"
+  },
+  "features": [
+    "font_categories",
+    "local_recovery",
+    "clipboard_export",
+    "background_menu",
+    "browser_menu_paste",
+    "smart_object_background",
+    "ai_background",
+    "history_layers_default"
+  ],
+  "font_catalog_sha256": "b3f73d7c1ce22123313de5b12d6f1748b621a66a6b49b36bbebf0ef36d38152d"
+}

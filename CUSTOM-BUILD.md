@@ -118,3 +118,18 @@ then rendered both in PhotoCraft's own font picker. The final native defaults
 also keep History and Layers visible after importing from an empty workspace.
 Native named/saved workspaces still restore their own layouts. Private test font
 files were kept outside the repository and are not in the Pages artifact.
+
+## Background removal during Free Transform
+
+The previous idle repaint fix did not close an active Free Transform preview.
+The browser menu now delegates to the regular app command path, which commits
+the transform before starting inference. Its existing asynchronous commit queue
+also handles larger transforms; failed commits do not start removal. Both AI
+and Quick removal commit pending transforms before changing the document.
+The menu regression creates a raster image, opens and translates Free Transform,
+invokes the actual removal menu, and checks that the preview is closed and the
+model service receives the translated pixels at the current document revision.
+Build 43678802137 passed upstream web packaging/layer checks, nine engine
+cutout regressions, both menu regressions (including the active-transform case),
+and both idle repaint regressions. Static staging verified all 15 app files,
+model assets and licensed font files before publication.

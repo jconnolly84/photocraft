@@ -44,3 +44,11 @@ Completion now wakes the idle editor and explicitly requests a canvas repaint.
 A no-input browser check verified that the background becomes transparent
 without switching to the Eraser or clicking another tool. The egui regression
 harness proves the old behavior fails and the fixed completion/error paths pass.
+
+The earlier no-input check covered an editor without an active Free Transform.
+A separate transform-preview bug could still cover the finished mask until a
+tool change. Remove Background now goes through the normal command path,
+committing the current transform before capturing model input. Large asynchronous
+transform commits queue the command until they finish successfully. The Quick
+command also commits transforms first. Size and position are preserved; failed
+transform commits leave the box open and do not start background removal.

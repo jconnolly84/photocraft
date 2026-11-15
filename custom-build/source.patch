@@ -433,6 +433,33 @@ index 9715192..f16f821 100644
 +        Ok(())
 +    })
 +}
+diff --git a/crates/ui-egui/src/app/commands.rs b/crates/ui-egui/src/app/commands.rs
+index 1aa8111..d404212 100644
+--- a/crates/ui-egui/src/app/commands.rs
++++ b/crates/ui-egui/src/app/commands.rs
+@@ -66,7 +66,7 @@ impl PhotocraftApp {
+         // (#5667): History reads the transform (or Place Embedded), then New Layer. Only for a
+         // command that can run; a transform refused or still being applied keeps the box open and
+         // the command doesn't run.
+-        if photocraft_engine::PRECHECKED.contains(&id) && self.ui.transform.is_some() {
++        if (photocraft_engine::PRECHECKED.contains(&id) || matches!(id, "layer.removeBackground" | "layer.removeBackgroundQuick")) && self.ui.transform.is_some() {
+             // Bad params or a command that can't run leave the box as it is.
+             self.session.precheck(id, &params).map_err(|e| e.to_string())?;
+             transform_tool::commit(self);
+@@ -86,6 +86,13 @@ impl PhotocraftApp {
+                 return Err(if self.ui.status.is_empty() { tl!("The transform couldn't be applied.").into() } else { self.ui.status.clone() });
+             }
+         }
++        if id == "layer.removeBackground" && self.services.browser_remove_background.is_some() {
++            self.session.precheck(id, &params).map_err(|e| e.to_string())?;
++            let st = self.session.active().ok_or("no document")?;
++            let layer = st.active_layer.ok_or("select an image layer")?;
++            self.services.browser_remove_background.as_mut().unwrap()(&st.doc, layer.0, st.revision)?;
++            return Ok(json!({"backgroundRemoval": "running locally"}));
++        }
+         actions::suspended_guard(self, id)?;
+         if let Some(result) = panel_docking::command(self, id, &params) {
+             return result;
 diff --git a/crates/ui-egui/src/menu_catalog.rs b/crates/ui-egui/src/menu_catalog.rs
 index d6db835..65df42e 100644
 --- a/crates/ui-egui/src/menu_catalog.rs
@@ -447,10 +474,10 @@ index d6db835..65df42e 100644
      (&["Select"], "Sky", None, "select.sky"),
      (&["Select"], "Select and Mask…", None, "select.selectAndMask"),
 diff --git a/crates/ui-egui/src/menus.rs b/crates/ui-egui/src/menus.rs
-index 7170389..96ef0c5 100644
+index 7170389..445ea4f 100644
 --- a/crates/ui-egui/src/menus.rs
 +++ b/crates/ui-egui/src/menus.rs
-@@ -324,3 +324,24 @@ mod window_documents_tests {
+@@ -324,3 +324,52 @@ mod window_documents_tests {
          assert_eq!(app.session.active_index(), Some(0));
      }
  }
@@ -459,6 +486,34 @@ index 7170389..96ef0c5 100644
 +mod browser_paste_menu_tests {
 +    use super::*;
 +    use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
++    #[test]
++    fn background_removal_commits_transform_before_capturing_model_input() {
++        let captured = Arc::new(std::sync::Mutex::new(None));
++        let output = captured.clone();
++        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services {
++            browser_remove_background: Some(Box::new(move |doc, layer, revision| {
++                let bounds = doc.layer(photocraft_doc::LayerId(layer)).unwrap().surface().unwrap().content_bounds();
++                *output.lock().unwrap() = Some((bounds.x0, revision));
++                Ok(())
++            })),
++            ..Default::default()
++        });
++        app.run("file.new", json!({"width": 200, "height": 200})).unwrap();
++        app.run("layer.new.layer", json!({"name": "Subject"})).unwrap();
++        app.run("select.rect", json!({"x": 20, "y": 20, "width": 40, "height": 40})).unwrap();
++        app.run("edit.fill", json!({"contents": "color", "color": "#ff0000"})).unwrap();
++        app.run("select.deselect", json!({})).unwrap();
++        let ctx = egui::Context::default();
++        invoke(&mut app, &ctx, "edit.freeTransform", json!({})).unwrap();
++        let t = app.ui.transform.as_mut().unwrap();
++        t.quad = t.quad.map(|[x,y]| [x + 10.0, y]);
++        t.pivot[0] += 10.0;
++        invoke(&mut app, &ctx, "layer.removeBackground", json!({})).unwrap();
++        assert!(app.ui.transform.is_none(), "the old preview must not cover the new mask");
++        let (x, revision) = captured.lock().unwrap().unwrap();
++        assert_eq!(x, 30, "model must receive the transformed image");
++        assert_eq!(revision, app.session.active().unwrap().revision);
++    }
 +    #[test]
 +    fn browser_menu_paste_is_enabled_without_reading_and_starts_on_click() {
 +        let calls = Arc::new(AtomicUsize::new(0));
@@ -476,23 +531,12 @@ index 7170389..96ef0c5 100644
 +    }
 +}
 diff --git a/crates/ui-egui/src/menus/invoke.rs b/crates/ui-egui/src/menus/invoke.rs
-index 43e2214..2e4e972 100644
+index 43e2214..280eb44 100644
 --- a/crates/ui-egui/src/menus/invoke.rs
 +++ b/crates/ui-egui/src/menus/invoke.rs
-@@ -545,7 +545,20 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
-         "select.transformSelection" if params.as_object().is_none_or(|o| o.is_empty()) => {
+@@ -546,6 +546,9 @@ pub(crate) fn invoke_unguarded(app: &mut PhotocraftApp, ctx: &egui::Context, id:
              crate::transform_tool::begin_selection(app, ctx).map(|_| json!({"transform": app.ui.transform}))
          }
-+        "layer.removeBackground" if app.services.browser_remove_background.is_some() => {
-+            if let Some(reason) = app.session.disabled_reason_with(id, &params) {return Err(reason);}
-+            let st = app.session.active().ok_or("no document")?;
-+            let layer = st.active_layer.ok_or("select an image layer")?;
-+            if let Some(start) = app.services.browser_remove_background.as_mut() {
-+                start(&st.doc, layer.0, st.revision)?;
-+            }
-+            ctx.request_repaint_after(std::time::Duration::from_millis(100));
-+            Ok(json!({"backgroundRemoval": "running locally"}))
-+        }
          "edit.paste" if params.as_object().is_none_or(|o| o.is_empty()) => {
 +            if app.services.browser_paste.as_mut().map(|paste| paste()).transpose()?.unwrap_or(false) {
 +                return Ok(json!({"browserPaste": true}));
@@ -500,7 +544,7 @@ index 43e2214..2e4e972 100644
              // Photoshop: paste in place when the copied area is visible, else centred in the view;
              // images from other apps are always centred.
              app.import_os_clipboard()?;
-@@ -927,7 +940,7 @@ pub fn apply_workspace(app: &mut PhotocraftApp) {
+@@ -927,7 +930,7 @@ pub fn apply_workspace(app: &mut PhotocraftApp) {
          // Color includes Swatches; Navigator keeps the pixel canvas easy to inspect.
          "Pixel Art" => (true, true, true, false, false),
          "Motion" => (false, false, true, false, true),
