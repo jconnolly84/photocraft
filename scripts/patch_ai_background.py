@@ -37,4 +37,22 @@ replace(cutout, '    }]\n}', '''    }];
     specs
 }''')
 replace(source / 'crates/ui-egui/src/menu_catalog.rs', '    (&["Select"], "Remove Background", None, "layer.removeBackground"),', '    (&["Select"], "Remove Background", None, "layer.removeBackground"),\n    (&["Select"], "Remove Background (Quick)", None, "layer.removeBackgroundQuick"),')
-print('Added local model background removal with stale-document checks and quick fallback.')
+# Route through the regular command path: it owns transform commit/queueing.
+# Capturing the image directly in the menu leaves a frozen transform preview
+# above the newly masked document, and can later overwrite that document.
+text = menu.read_text(encoding='utf-8')
+begin = text.index('        "layer.removeBackground" if app.services.browser_remove_background.is_some() => {')
+end = text.index('        "edit.paste" if params.as_object()', begin)
+text = text[:begin] + text[end:]
+menu.write_text(text, encoding='utf-8', newline='\n')
+commands = source / 'crates/ui-egui/src/app/commands.rs'
+replace(commands, 'if photocraft_engine::PRECHECKED.contains(&id) && self.ui.transform.is_some() {', 'if (photocraft_engine::PRECHECKED.contains(&id) || matches!(id, "layer.removeBackground" | "layer.removeBackgroundQuick")) && self.ui.transform.is_some() {')
+replace(commands, '        actions::suspended_guard(self, id)?;', '''        if id == "layer.removeBackground" && self.services.browser_remove_background.is_some() {
+            self.session.precheck(id, &params).map_err(|e| e.to_string())?;
+            let st = self.session.active().ok_or("no document")?;
+            let layer = st.active_layer.ok_or("select an image layer")?;
+            self.services.browser_remove_background.as_mut().unwrap()(&st.doc, layer.0, st.revision)?;
+            return Ok(json!({"backgroundRemoval": "running locally"}));
+        }
+        actions::suspended_guard(self, id)?;''')
+print('Added local model background removal with transform commit/queueing, stale-document checks and quick fallback.')
