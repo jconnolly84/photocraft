@@ -81,6 +81,20 @@ pub(super) fn start_screen(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                 });
             });
             ui.add_space(22.0);
+            if app.services.browser_start_action.is_some() {
+                egui::Frame::new().fill(t.field).corner_radius(12.0).inner_margin(18.0).show(ui, |ui| {
+                    ui.set_min_width((width-40.0).max(0.0));
+                    ui.label(RichText::new("STUDIO PROJECT  /  GCSE").size(10.0).strong().color(t.accent));
+                    ui.add_space(5.0);
+                    ui.label(RichText::new("Make an advert. Make it yours.").size(23.0).strong());
+                    ui.label("Build a bold sportswear campaign with short silent demos, practice assets and a step-by-step guide.");
+                    ui.add_space(10.0);
+                    if ui.add_sized([190.0,36.0],egui::Button::new("Start the FLUX tutorial →")).clicked() {
+                        if let Some(action) = app.services.browser_start_action.as_mut(){let _ = action("tutorial");}
+                    }
+                });
+                ui.add_space(22.0);
+            }
             ui.label(RichText::new("Start with a canvas").size(18.0).strong());
             ui.label(RichText::new("Choose a size, then customise the details before creating.").color(t.text_dim));
             ui.add_space(10.0);
