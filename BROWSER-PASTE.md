@@ -39,3 +39,33 @@ Live custom-build verification (2026-11-14): Edit > Paste opened an external PNG
 from an empty workspace, then placed it into the document as a Smart Object.
 Edit > Copy followed by Edit > Paste took the native internal path and added a
 pixel layer, without reading the external clipboard again.
+
+## One paste per Ctrl+V gesture
+
+The browser DOM paste event and native Edit → Paste callback previously raced:
+the DOM image was placed immediately, then an asynchronous clipboard read could
+place it again. If AI removal had started, that second placement correctly
+invalidated its document-revision check.
+
+External Ctrl+V now keeps the browser default paste action but stops the raw key
+from also queuing the app command. Image paste events and any already-started
+native callback share an intent; whichever delivers first claims it. Guards
+after clipboard reads and blob conversion reject duplicate or obsolete results,
+including reads from a replaced editor or earlier paste. Separate key presses
+and explicit menu/toolbar requests still paste separately, even identical bytes.
+Internal Copy cancels older external reads and retains the native editable path.
+Ordinary text paste remains on its DOM/eframe route. No image hashes or blanket
+time-based duplicate-image suppression are used. AI revision checks are unchanged.
+
+The regression reproduces the old extra placement with a delayed read (fails
+against the previous production script) and passes with the fix in both race
+orders. It also tests delayed blob conversion, menu clicks during a pending
+read, separate gestures, permission errors, internal copies and editor restarts.
+
+Live Chrome verification (2026-11-15): a real PNG clipboard and Ctrl+V produced
+one image layer and one Place Embedded entry in a blank document. Select →
+Remove Background committed its active transform and completed with one masked
+image layer, without switching tools or receiving a delayed second placement.
+A real text Ctrl+V replaced selected Type-tool text correctly. The test used a
+public test portrait on an isolated localhost origin; the prior clipboard was
+restored afterwards. No student documents were used or uploaded.
