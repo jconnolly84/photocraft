@@ -1,8 +1,8 @@
 diff --git a/apps/photocraft-web/Cargo.toml b/apps/photocraft-web/Cargo.toml
-index 7054d67..93483a0 100644
+index 7054d67..76573ca 100644
 --- a/apps/photocraft-web/Cargo.toml
 +++ b/apps/photocraft-web/Cargo.toml
-@@ -20,6 +20,7 @@ path = "src/main.rs"
+@@ -20,12 +20,14 @@ path = "src/main.rs"
  
  [dependencies]
  photocraft-engine = { workspace = true }
@@ -10,6 +10,13 @@ index 7054d67..93483a0 100644
  photocraft-io = { workspace = true }
  photocraft-codecs = { workspace = true }
  photocraft-doc = { workspace = true }
+ photocraft-ui-egui = { workspace = true }
+ photocraft-raster = { workspace = true }
+ egui = { workspace = true }
++serde_json = { workspace = true }
+ log = { workspace = true }
+ 
+ [target.'cfg(target_arch = "wasm32")'.dependencies]
 diff --git a/apps/photocraft-web/src/browser_background.rs b/apps/photocraft-web/src/browser_background.rs
 new file mode 100644
 index 0000000..e7ca72a
@@ -226,7 +233,7 @@ index 6084619..cb51ebb 100644
  mod web;
  
 diff --git a/apps/photocraft-web/src/web.rs b/apps/photocraft-web/src/web.rs
-index 5f6b71e..947c42f 100644
+index 5f6b71e..790d28b 100644
 --- a/apps/photocraft-web/src/web.rs
 +++ b/apps/photocraft-web/src/web.rs
 @@ -81,6 +81,7 @@ pub fn start() {
@@ -237,7 +244,7 @@ index 5f6b71e..947c42f 100644
          let pen_target = canvas.clone();
          let runner = eframe::WebRunner::new();
          // After the runner's own panic handler, so the message is kept and the runner's handler
-@@ -102,7 +103,15 @@ pub fn start() {
+@@ -102,7 +103,16 @@ pub fn start() {
                      let (session, warnings) = crate::preset_bridge::session(presets.clone());
                      preset_warnings.extend(warnings);
                      let drag = listen_drag(&pen_target);
@@ -251,10 +258,11 @@ index 5f6b71e..947c42f 100644
 +                        });
 +                    }
 +                    initialize_default_panels(&mut app);
++                    initialize_default_toolbar(&mut app);
                      if !preset_warnings.is_empty() {
                          photocraft_ui_egui::notices::post(&mut app, i18n::t("Some brush presets could not be loaded"), preset_warnings, true, None);
                      }
-@@ -425,6 +434,7 @@ impl eframe::App for WebShell {
+@@ -425,6 +435,7 @@ impl eframe::App for WebShell {
      }
  
      fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
@@ -262,7 +270,7 @@ index 5f6b71e..947c42f 100644
          let dropped = ctx.input_mut(|i| std::mem::take(&mut i.raw.dropped_files));
          if !dropped.is_empty() {
              let names: Vec<String> =
-@@ -499,8 +509,8 @@ impl eframe::App for WebShell {
+@@ -499,8 +510,8 @@ impl eframe::App for WebShell {
      }
  }
  
@@ -273,7 +281,7 @@ index 5f6b71e..947c42f 100644
          screen_pick: screen_color_service(),
          import: Some(Box::new(|name: &str, bytes: &[u8], opts: &photocraft_io::ImportOptions| {
              photocraft_io::import_with_options(name, bytes, opts).map(|r| (r.document, r.warnings)).map_err(|e| e.to_string())
-@@ -545,6 +555,13 @@ fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egu
+@@ -545,6 +556,13 @@ fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egu
              }
          })),
          write: Some(Box::new(|path: &str, bytes: &[u8]| download(path, bytes))),
@@ -287,7 +295,7 @@ index 5f6b71e..947c42f 100644
          // A download may be cancelled and never reports back: it doesn't save the document.
          write_unconfirmed: true,
          encode_png: Some(Box::new(|w, h, rgba| {
-@@ -561,7 +578,9 @@ fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egu
+@@ -561,7 +579,9 @@ fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egu
          save_gpu_memo: None,
          shader_compiler: None,
          ..Default::default()
@@ -298,7 +306,7 @@ index 5f6b71e..947c42f 100644
  }
  
  const PREFS_KEY: &str = "photocraft.preferences";
-@@ -679,3 +698,17 @@ fn screen_color_service() -> Option<photocraft_ui_egui::screen_picker::Service>
+@@ -679,3 +699,35 @@ fn screen_color_service() -> Option<photocraft_ui_egui::screen_picker::Service>
          Pending { receiver: rx, cancelled }
      }))
  }
@@ -314,6 +322,24 @@ index 5f6b71e..947c42f 100644
 +            photocraft_ui_egui::menus::apply_workspace(app);
 +        }
 +        if let Some(store) = storage {let _ = store.set_item(KEY, "true");}
++    }
++}
++
++/// Apply this classroom preset once; later toolbar choices remain user-controlled.
++fn initialize_default_toolbar(app: &mut PhotocraftApp) {
++    const KEY: &str = "photocraft.compact-toolbar.v1";
++    let storage = web_sys::window().and_then(|w| w.local_storage().ok().flatten());
++    let first = storage.as_ref().and_then(|s| s.get_item(KEY).ok())
++        .map(|v| v.is_none()).unwrap_or(false);
++    if first {
++        app.ui.group_tools.retain(|tool| !matches!(tool, photocraft_ui_egui::state::Tool::Gradient | photocraft_ui_egui::state::Tool::PaintBucket));
++        app.ui.remember_group_tool(photocraft_ui_egui::state::Tool::PaintBucket);
++        let groups = serde_json::to_value(&app.ui.group_tools).unwrap_or_default();
++        app.session.edit_prefs(|p| {
++            p.toolbar = Default::default();
++            p.group_tools = groups;
++        });
++        if let Some(s) = storage {let _ = s.set_item(KEY, "true");}
 +    }
 +}
 diff --git a/crates/engine/src/cmd/cutout_cmds.rs b/crates/engine/src/cmd/cutout_cmds.rs
@@ -433,6 +459,29 @@ index 9715192..f16f821 100644
 +        Ok(())
 +    })
 +}
+diff --git a/crates/engine/src/prefs.rs b/crates/engine/src/prefs.rs
+index 6ad6fdd..866f57b 100644
+--- a/crates/engine/src/prefs.rs
++++ b/crates/engine/src/prefs.rs
+@@ -1275,12 +1275,17 @@ impl MenuCustomization {
+ }
+ 
+ /// Edit › Toolbar: hidden tools and a custom order (tool names as in `ui.set {tool}`).
+-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
++#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+ #[serde(default, rename_all = "camelCase")]
+ pub struct ToolbarCustomization {
+     pub hidden: Vec<String>,
+     pub order: Vec<String>,
+ }
++impl Default for ToolbarCustomization {
++    fn default() -> Self {
++        Self {hidden: ["Artboard", "EllipseMarquee", "SingleRowMarquee", "SingleColumnMarquee", "Lasso", "PolygonLasso", "MagneticLasso", "PerspectiveCrop", "Eyedropper", "ColorSampler", "Ruler", "Note", "Count", "Brush", "Pencil", "MixerBrush", "ColorReplacement", "BackgroundEraser", "MagicEraser", "VerticalType", "HorizontalTypeMask", "VerticalTypeMask", "RotateView", "Remove", "Healing", "Patch", "ContentAwareMove", "RedEye", "CloneStamp", "PatternStamp", "HistoryBrush", "ArtHistoryBrush", "Sharpen", "Smudge", "Dodge", "Burn", "Sponge", "QuickSelection", "ObjectSelection", "FreeformPen", "CurvaturePen", "AddAnchorPoint", "DeleteAnchorPoint", "ConvertPoint", "DirectSelection", "EllipseShape", "Triangle", "Polygon", "Star", "Line", "CustomShape", "Slice", "SliceSelect", "Frame"].into_iter().map(str::to_string).collect(), order: Vec::new()}
++    }
++}
+ 
+ /// Layer Mask Display Options (double-click the layer mask's row in the Channels panel, or Mask
+ /// Options… on its Layers thumbnail): the colour and opacity of the layer mask rubylith (`\`,
 diff --git a/crates/ui-egui/src/app/commands.rs b/crates/ui-egui/src/app/commands.rs
 index 1aa8111..d404212 100644
 --- a/crates/ui-egui/src/app/commands.rs
@@ -567,6 +616,69 @@ index e4bdc7a..62923fe 100644
          "edit.pasteSpecial.pasteInPlace" => app.session.is_enabled(id) || (app.services.clipboard_get_image.is_some() && app.session.active().is_some()),
          "select.selectAndMask" => app.session.is_enabled("select.refineEdge"),
          "type.editText" => app
+diff --git a/crates/ui-egui/src/panels.rs b/crates/ui-egui/src/panels.rs
+index 1f660fb..53be059 100644
+--- a/crates/ui-egui/src/panels.rs
++++ b/crates/ui-egui/src/panels.rs
+@@ -2188,3 +2188,25 @@ mod panel_state_migration_tests {
+         assert_eq!(PanelState::load(&ctx, new).map(|p| p.size().x), Some(290.0));
+     }
+ }
++
++#[cfg(test)]
++mod school_toolbar_tests {
++    use super::*;
++    #[test]
++    fn compact_defaults_have_reference_slots_and_bucket_front() {
++        let prefs = photocraft_engine::prefs::ToolbarCustomization::default();
++        let sections = toolbar::visible_sections(&prefs.hidden);
++        let slots: Vec<_> = sections.iter().flatten().map(|(_, tools)| tools).collect();
++        let fronts: Vec<_> = slots.iter().map(|slot| toolbar::slot_tool(Tool::Move, &[], slot)).collect();
++        assert_eq!(fronts, vec![Tool::Move, Tool::RectMarquee, Tool::MagicWand,
++            Tool::Crop, Tool::SpotHealing, Tool::Eraser, Tool::PaintBucket,
++            Tool::Blur, Tool::Type, Tool::Pen, Tool::PathSelection,
++            Tool::Rectangle, Tool::Hand, Tool::Zoom]);
++        assert_eq!(slots[6].as_slice(), &[Tool::PaintBucket, Tool::Gradient]);
++        assert_eq!(prefs.hidden.len(), 54);
++        assert!(!prefs.hidden.iter().any(|n| n == "Gradient"));
++        assert!(prefs.hidden.iter().any(|n| n == "Frame"));
++        let roundtrip: photocraft_engine::prefs::ToolbarCustomization = serde_json::from_str("{}").unwrap();
++        assert_eq!(roundtrip, prefs);
++    }
++}
+diff --git a/crates/ui-egui/src/panels/toolbar.rs b/crates/ui-egui/src/panels/toolbar.rs
+index a8ed212..86e5c39 100644
+--- a/crates/ui-egui/src/panels/toolbar.rs
++++ b/crates/ui-egui/src/panels/toolbar.rs
+@@ -34,13 +34,13 @@ pub(crate) const TOOL_SECTIONS: &[&[&[Tool]]] = &[
+         &[Tool::CloneStamp, Tool::PatternStamp],
+         &[Tool::HistoryBrush, Tool::ArtHistoryBrush],
+         &[Tool::Eraser, Tool::BackgroundEraser, Tool::MagicEraser],
+-        &[Tool::Gradient, Tool::PaintBucket],
++        &[Tool::PaintBucket, Tool::Gradient],
+         &[Tool::Blur, Tool::Sharpen, Tool::Smudge],
+         &[Tool::Dodge, Tool::Burn, Tool::Sponge],
+     ],
+     &[
+-        &[Tool::Pen, Tool::FreeformPen, Tool::CurvaturePen, Tool::AddAnchorPoint, Tool::DeleteAnchorPoint, Tool::ConvertPoint],
+         &[Tool::Type, Tool::VerticalType, Tool::VerticalTypeMask, Tool::HorizontalTypeMask],
++        &[Tool::Pen, Tool::FreeformPen, Tool::CurvaturePen, Tool::AddAnchorPoint, Tool::DeleteAnchorPoint, Tool::ConvertPoint],
+         &[Tool::PathSelection, Tool::DirectSelection],
+         &[Tool::Rectangle, Tool::EllipseShape, Tool::Triangle, Tool::Polygon, Tool::Star, Tool::Line, Tool::CustomShape],
+     ],
+diff --git a/crates/ui-egui/src/prefs/prefs_ui/dialogs.rs b/crates/ui-egui/src/prefs/prefs_ui/dialogs.rs
+index c2fecf6..83021d7 100644
+--- a/crates/ui-egui/src/prefs/prefs_ui/dialogs.rs
++++ b/crates/ui-egui/src/prefs/prefs_ui/dialogs.rs
+@@ -232,7 +232,7 @@ pub(super) fn toolbar_tab(ui: &mut egui::Ui, f: &mut Map<String, Value>) {
+         });
+     });
+     if ui.button(tl!("Restore Defaults")).clicked() {
+-        hidden.clear();
++        hidden = photocraft_engine::prefs::ToolbarCustomization::default().hidden;
+     }
+     f.insert("toolbarHidden".into(), json!(hidden));
+ }
 diff --git a/crates/ui-egui/src/services.rs b/crates/ui-egui/src/services.rs
 index 6e28f00..b348818 100644
 --- a/crates/ui-egui/src/services.rs
