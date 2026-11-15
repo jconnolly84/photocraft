@@ -538,6 +538,23 @@ index 6e28f00..b348818 100644
      /// SVG text copied by another app: imported only by an explicit pixels/path/shape paste,
      /// and read after an ordinary paste too, only to remember which SVG came with that image.
      pub clipboard_get_svg: Option<ClipboardGetSvgFn>,
+diff --git a/crates/ui-egui/src/state.rs b/crates/ui-egui/src/state.rs
+index 138d995..c47b739 100644
+--- a/crates/ui-egui/src/state.rs
++++ b/crates/ui-egui/src/state.rs
+@@ -137,9 +137,9 @@ impl Default for Panels {
+     fn default() -> Self {
+         Self {
+             layers: true,
+-            history: false,
+-            properties: true,
+-            color: true,
++            history: true,
++            properties: false,
++            color: false,
+             navigator: false,
+             toolbar: true,
+             options_bar: true,
 diff --git a/crates/ui-egui/src/text/font_filters.rs b/crates/ui-egui/src/text/font_filters.rs
 index 5883860..d614e80 100644
 --- a/crates/ui-egui/src/text/font_filters.rs

@@ -36,12 +36,12 @@ modules and app parts across builds.
 
 ## Published and verified
 
-Build workflow `43651944804` succeeded, including upstream packaging and source
+Build workflow `43654832257` succeeded, including upstream packaging and source
 layer checks. Its full archive is preserved under `custom-build/web`, with hashes
 and source details in `custom-build/BUILD.json`, and the exact diff in
 `custom-build/source.patch`. The original release is still under `photocraft/`.
 
-The served app lives at a per-build URL (`build-43651944804/`) and the wrapper
+The served app lives at a per-build URL (`build-43654832257/`) and the wrapper
 selects it through a fingerprinted config script. This prevents Pages' fixed
 10-minute cache from mixing old manifests/glue with new app parts. Every host
 script is also fingerprinted. A changed font catalog requires a fresh custom
@@ -77,7 +77,7 @@ wire the service; `custom-source/background_mask.rs` validates and applies its
 result as one undoable engine edit only to the unchanged source revision.
 
 The final browser build compiled, packaged and passed source layer checks in run
-43651944804. The menu/Smart Object native regressions passed in run 43647163896
+43654832257. The menu/Smart Object native regressions passed in run 43647163896
 (nine cutout tests and one actual menu test); all three classification tests
 passed for the expanded 72-family catalog in run 43647842593. Host clipboard,
 recovery, font access, shortcuts and AI cancellation/restart tests passed too.
@@ -100,6 +100,21 @@ the transparent background appeared automatically with the original tool kept.
 The Essentials workspace defaults to History above Layers. A one-time migration
 updates existing Essentials layouts; named custom workspaces remain untouched,
 and later layout changes are remembered normally. The reproducible patch is
-scripts/patch_default_panels.py. Build 43651944804 contains both changes and
+scripts/patch_default_panels.py. Build 43654832257 contains both changes and
 passed compilation, upstream packaging and source layer checks. All app, model
 and font bytes were verified during static-site staging.
+
+
+## User font-file loading
+
+The host accepts staged .ttf/.otf files through Fonts & import, validates bounded
+SFNT naming metadata and browser font decoding, and applies them through the
+existing session-only font worker. Applying is an explicit editor restart;
+choosing or cancelling staged files does not touch the document. The font worker
+URL is fingerprinted to avoid mixing old and new handlers in Pages caches.
+
+Live Chrome tests loaded Berkshire Swash TTF and Source Code Pro OTF together,
+then rendered both in PhotoCraft's own font picker. The final native defaults
+also keep History and Layers visible after importing from an empty workspace.
+Native named/saved workspaces still restore their own layouts. Private test font
+files were kept outside the repository and are not in the Pages artifact.

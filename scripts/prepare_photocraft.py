@@ -75,6 +75,10 @@ worker = site / 'background-worker.js'
 background_host = site / 'background-removal.js'
 if worker.is_file() and background_host.is_file():
     background_host.write_text(background_host.read_text(encoding='utf-8').replace('__BACKGROUND_WORKER_VERSION__', hashlib.sha256(worker.read_bytes()).hexdigest()[:12]), encoding='utf-8')
+font_worker = site / 'local-font-worker.js'
+font_host = site / 'local-fonts.js'
+if font_worker.is_file() and font_host.is_file():
+    font_host.write_text(font_host.read_text(encoding='utf-8').replace('__FONT_WORKER_VERSION__', hashlib.sha256(font_worker.read_bytes()).hexdigest()[:12]), encoding='utf-8')
 editor_path = './photocraft/'
 if custom_metadata.exists():
     run_id = str(metadata['workflow_run'])

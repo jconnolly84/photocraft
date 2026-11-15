@@ -41,7 +41,7 @@ async function manifest(event) {
       const fields = line.split('|').map(field => field.trim());
       return !overrides.has(fields[0] + '|' + fields[1]);
     }).join('\n');
-    const local = valid.map(row => `${row.family} | ${row.style} | fonts/__local/${encodeURIComponent(row.postscriptName)}.ttf`).join('\n');
+    const local = valid.map(row => `${row.family} | ${row.style} | fonts/__local/${encodeURIComponent(row.postscriptName)}.${row.format === 'otf' ? 'otf' : 'ttf'}`).join('\n');
     return new Response(text + '\n' + local + '\n', {
       headers: {'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store'},
     });
@@ -51,13 +51,13 @@ async function manifest(event) {
 async function fontBytes(event, url) {
   try {
     const encoded = url.pathname.split('/fonts/__local/')[1] || '';
-    if (!encoded.endsWith('.ttf') || encoded.includes('/')) throw new Error('Invalid local font URL');
+    if (!/\.(ttf|otf)$/.test(encoded) || encoded.includes('/')) throw new Error('Invalid local font URL');
     const name = decodeURIComponent(encoded.slice(0, -4));
     const {bytes} = await requestOwner(event.clientId, 'bytes', name);
     if (!(bytes instanceof ArrayBuffer)) throw new Error('Missing font bytes');
-    return new Response(bytes, {headers: {'Content-Type': 'font/ttf', 'Cache-Control': 'no-store'}});
+    return new Response(bytes, {headers: {'Content-Type': encoded.endsWith('.otf') ? 'font/otf' : 'font/ttf', 'Cache-Control': 'no-store'}});
   } catch {
-    return new Response('Local font unavailable. Re-enable PC fonts.', {status: 404});
+    return new Response('Local font unavailable. Load font files again or re-enable PC fonts.', {status: 404});
   }
 }
 self.addEventListener('fetch', event => {

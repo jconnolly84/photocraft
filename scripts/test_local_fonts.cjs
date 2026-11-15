@@ -11,8 +11,9 @@ const owner = {
   postMessage(message, ports) {
     const result = message.action === 'manifest'
       ? {rows: [{family: 'Arial', style: 'Regular', postscriptName: 'ArialMT'},
-                {family: 'Bad|Row', style: 'Regular', postscriptName: 'Bad'}]}
-      : message.name === 'ArialMT' ? {bytes: fixture.slice().buffer} : {error: 'Unavailable'};
+                {family: 'Bad|Row', style: 'Regular', postscriptName: 'Bad'},
+                {family: 'Private OTF', style: 'Regular', postscriptName: 'UserOtf', format: 'otf'}]}
+      : ['ArialMT', 'UserOtf'].includes(message.name) ? {bytes: fixture.slice().buffer} : {error: 'Unavailable'};
     ports[0].postMessage(result); ports[0].close();
   },
 };
@@ -47,6 +48,10 @@ async function fetchRoute(path, clientId = 'editor', method = 'GET') {
   const font = await fetchRoute('photocraft/fonts/__local/ArialMT.ttf');
   assert.deepEqual(new Uint8Array(await font.arrayBuffer()), fixture);
   assert.equal(font.headers.get('cache-control'), 'no-store');
+  assert(text.includes('fonts/__local/UserOtf.otf'));
+  const otf = await fetchRoute('photocraft/fonts/__local/UserOtf.otf');
+  assert.equal(otf.headers.get('content-type'), 'font/otf');
+  assert.deepEqual(new Uint8Array(await otf.arrayBuffer()), fixture);
   const missing = await fetchRoute('photocraft/fonts/__local/Missing.ttf');
   assert.equal(missing.status, 404);
   const isolated = await fetchRoute('photocraft/fonts/__local/ArialMT.ttf', 'other-editor');
