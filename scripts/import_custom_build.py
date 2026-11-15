@@ -53,7 +53,7 @@ metadata = {
     'upstream_version': 'v0.23.1', 'upstream_commit': '45066c48292e92229ada3459a83453439514c83d',
     'workflow_run': run_id, 'archive_sha256': hashlib.sha256(archive.read_bytes()).hexdigest(),
     'patch': 'scripts/patch_photocraft_source.py',
-    'patches': ['scripts/patch_photocraft_source.py', 'scripts/patch_extra_features.py', 'scripts/patch_ai_background.py', 'scripts/patch_default_panels.py'], 'files': files,
+    'patches': ['scripts/patch_photocraft_source.py', 'scripts/patch_extra_features.py', 'scripts/patch_ai_background.py', 'scripts/patch_default_panels.py', 'scripts/patch_default_toolbar.py'], 'files': files,
     'features': features,
     'font_catalog_sha256': hashlib.sha256(json.dumps(json.loads((root / 'host/font-catalog.json').read_text(encoding='utf-8')), sort_keys=True, separators=(',', ':')).encode()).hexdigest(),
 }

@@ -35,6 +35,7 @@ jobs:
           python scripts/patch_extra_features.py upstream
           python scripts/patch_ai_background.py upstream
           python scripts/patch_default_panels.py upstream
+          python scripts/patch_default_toolbar.py upstream
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
@@ -82,6 +83,7 @@ jobs:
           python scripts/patch_extra_features.py upstream
           python scripts/patch_ai_background.py upstream
           python scripts/patch_default_panels.py upstream
+          python scripts/patch_default_toolbar.py upstream
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -92,6 +94,7 @@ jobs:
         run: |
           cargo test -p photocraft-engine --lib cutout_cmds::tests
           cargo test -p photocraft-ui-egui --lib browser_paste_menu_tests
+          cargo test -p photocraft-ui-egui --lib school_toolbar_tests
 
   idle-repaint:
     uses: ./.github/workflows/test-background-repaint.yml
