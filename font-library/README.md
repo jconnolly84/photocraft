@@ -63,6 +63,13 @@ the official repository's pinned tree. Its entries survive a base-catalog
 reimport; run `scripts/build_font_catalog.py` afterwards. Rebuild the native app
 when categories change so the menu filters classify unloaded fonts too.
 
+Build 43709610447 packages this catalog. The exact native classification
+helpers and menu filters passed all three focused tests for all 148 families;
+the font metadata/import tests passed all 270 faces. Static staging verified
+every font hash and licence path. A separate Chrome preview verified new fonts
+under Monospace and Blackletter, plus JetBrains Mono rendering in the native
+picker preview and a text layer. Fonts are served from the same Pages site.
+
 ## Provenance and maintenance
 
 ### Decorative fonts from DaFont
@@ -82,8 +89,9 @@ preserves these additional entries when rebuilding its base catalog.
 
 Font files come from the official `storytold/craft-fonts` Latin catalog and
 `google/fonts`, at pinned commits recorded in `SOURCES.json`. Craft catalog
-checksums were verified against its published manifest. All imported file hashes
-(including licences) are recorded in SOURCES.json. Deployment checks font hashes,
+checksums were verified against its published manifest. Base-catalog file hashes
+(including licences) are recorded in SOURCES.json; expanded and DaFont assets
+have their own source records described above. Deployment checks font hashes,
 licence paths and manifest completeness before publishing.
 
 `python scripts/import_fonts.py` recreates the catalog (requires fontTools and gh).
