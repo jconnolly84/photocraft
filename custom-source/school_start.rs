@@ -18,6 +18,26 @@ fn new_project(app: &mut PhotocraftApp, preset: Option<&crate::new_doc_ui::Prese
     app.ui.open_dialog(crate::state::DialogKind::NewDocument, fields);
 }
 
+fn studio_art(ui: &mut egui::Ui) {
+    let (r, _) = ui.allocate_exact_size(vec2(270.0,180.0),Sense::hover());
+    let p = ui.painter();
+    let blue = Color32::from_rgb(67,102,255);
+    let paper = Rect::from_min_size(r.min+vec2(46.0,7.0),vec2(170.0,158.0));
+    p.rect_filled(paper.translate(vec2(12.0,12.0)),8.0,Color32::from_black_alpha(45));
+    p.rect_filled(paper.translate(vec2(-17.0,9.0)),8.0,Color32::from_rgb(184,169,255));
+    p.rect_filled(paper,8.0,blue);
+    p.circle_filled(paper.min+vec2(127.0,42.0),31.0,Color32::from_rgb(218,242,119));
+    p.text(paper.min+vec2(17.0,18.0),Align2::LEFT_TOP,"MAKE\nYOUR\nMARK.",crate::theme::semibold(29.0),Color32::WHITE);
+    p.circle_filled(r.min+vec2(38.0,139.0),26.0,Color32::from_rgb(255,137,107));
+    p.line_segment([r.min+vec2(23.0,139.0),r.min+vec2(53.0,139.0)],Stroke::new(2.5,Color32::from_rgb(19,36,75)));
+    p.line_segment([r.min+vec2(38.0,124.0),r.min+vec2(38.0,154.0)],Stroke::new(2.5,Color32::from_rgb(19,36,75)));
+    let selection = paper.expand(5.0);
+    p.rect_stroke(selection,1.0,Stroke::new(1.0,Color32::from_rgb(155,181,255)),StrokeKind::Inside);
+    for corner in [selection.left_top(),selection.right_top(),selection.left_bottom(),selection.right_bottom()] {
+        p.rect_filled(Rect::from_center_size(corner,vec2(6.0,6.0)),0.0,Color32::WHITE);
+    }
+}
+
 pub(super) fn start_screen(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     let area = ui.available_rect_before_wrap();
     open_on_double_click(app, ui, area);
@@ -37,13 +57,22 @@ pub(super) fn start_screen(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                 });
             });
             ui.add_space(22.0);
-            egui::Frame::new().fill(t.field).corner_radius(12.0).inner_margin(22.0).show(ui, |ui| {
+            egui::Frame::new().fill(Color32::from_rgb(19,36,75)).corner_radius(16.0).inner_margin(24.0).show(ui, |ui| {
                 ui.set_min_width((width - 44.0).max(0.0));
-                ui.label(RichText::new("Make something worth sharing.").size(26.0).strong());
-                ui.label(RichText::new("Edit a photo, build a poster or start with a blank canvas.").size(14.0).color(t.text_dim));
+                ui.horizontal_top(|ui| {
+                    ui.vertical(|ui| {
+                        ui.set_width(if width > 800.0 {width-350.0} else {width-50.0});
+                        ui.label(RichText::new("A LITTLE CURIOSITY. ENDLESS POSSIBILITIES.").size(10.0).strong().color(Color32::from_rgb(184,200,255)));
+                        ui.add_space(8.0);
+                        ui.label(RichText::new("Big ideas.\nStart here.").size(if width<480.0 {34.0}else{44.0}).strong().color(Color32::WHITE));
+                        ui.add_space(8.0);
+                        ui.label(RichText::new("Turn a photo, a blank page or a spark of an idea into something your own.").size(14.0).color(Color32::from_rgb(204,215,240)));
+                    });
+                    if width>800.0 {studio_art(ui);}
+                });
                 ui.add_space(18.0);
                 ui.horizontal_wrapped(|ui| {
-                    if ui.add_sized([150.0,42.0], egui::Button::new(RichText::new("New project").strong()).fill(t.accent)).clicked() {new_project(app,None);}
+                    if ui.add_sized([150.0,42.0], egui::Button::new(RichText::new("New project  +").strong().color(Color32::from_rgb(19,36,75))).fill(Color32::from_rgb(218,242,119))).clicked() {new_project(app,None);}
                     if ui.add_sized([180.0,42.0], egui::Button::new("Open from computer")).clicked() {let _ = app.open_dialog_file();}
                     if app.services.browser_start_action.is_some() && ui.add_sized([180.0,42.0],egui::Button::new("Recovery & saving")).clicked() {
                         if let Some(action) = app.services.browser_start_action.as_mut() {let _ = action("recovery");}
@@ -58,10 +87,13 @@ pub(super) fn start_screen(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = vec2(12.0,12.0);
                 let card_w = if width < 480.0 {(width - 16.0) / 2.0} else {((width - 48.0) / 4.0).min(250.0)};
-                for preset in SCHOOL_PRESETS {
+                for (index,preset) in SCHOOL_PRESETS.iter().enumerate() {
                     let (r, response) = ui.allocate_exact_size(vec2(card_w,146.0),Sense::click());
                     response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button,true,preset.0));
                     ui.painter().rect_filled(r,8.0,if response.hovered(){t.hover}else{t.field});
+                    let colors = [Color32::from_rgb(67,102,255),Color32::from_rgb(184,169,255),Color32::from_rgb(255,137,107),Color32::from_rgb(218,242,119)];
+                    ui.painter().rect_filled(Rect::from_min_size(r.min+vec2(5.0,5.0),vec2(r.width()-10.0,76.0)),5.0,colors[index]);
+                    if response.hovered(){ui.painter().rect_stroke(r,8.0,Stroke::new(1.5,t.accent),StrokeKind::Inside);}
                     let scale = 58.0 / preset.1.max(preset.2) as f32;
                     let page = Rect::from_center_size(pos2(r.center().x,r.top()+44.0),vec2(preset.1 as f32*scale,preset.2 as f32*scale));
                     ui.painter().rect_filled(page,2.0,Color32::from_rgb(226,235,249));
