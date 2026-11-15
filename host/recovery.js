@@ -100,6 +100,7 @@
     return selected;
   }
   window.photocraftRecoverySummary = async () => {
+    if (!enabled) throw new Error('Recovery is disabled. Enable it and reload after saving your work.');
     await queue;
     return (await recoverable()).map(row => ({name: String(row.name || 'Recovered document').slice(0,256), updated: row.updated}));
   };

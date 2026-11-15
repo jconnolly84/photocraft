@@ -100,10 +100,10 @@ index 0000000..e7ca72a
 +}
 diff --git a/apps/photocraft-web/src/browser_recovery.rs b/apps/photocraft-web/src/browser_recovery.rs
 new file mode 100644
-index 0000000..3d9987f
+index 0000000..839560c
 --- /dev/null
 +++ b/apps/photocraft-web/src/browser_recovery.rs
-@@ -0,0 +1,111 @@
+@@ -0,0 +1,117 @@
 +//! Local-only recovery and clipboard services for the school browser host.
 +use std::sync::{Arc, Mutex, PoisonError};
 +use js_sys::{Array, Function, Object, Reflect, Uint8Array};
@@ -215,6 +215,12 @@ index 0000000..3d9987f
 +    let Ok(function) = value.dyn_into::<Function>() else { return Ok(false) };
 +    function.call0(&host).map_err(js).map(|value| value.as_bool().unwrap_or(false))
 +}
++
++pub fn start_action(action: &str) -> Result<(), String> {
++    let promise = invoke("photocraftStartAction", &JsValue::from_str(action))?;
++    wasm_bindgen_futures::spawn_local(async move {let _ = JsFuture::from(promise).await;});
++    Ok(())
++}
 diff --git a/apps/photocraft-web/src/main.rs b/apps/photocraft-web/src/main.rs
 index 6084619..cb51ebb 100644
 --- a/apps/photocraft-web/src/main.rs
@@ -233,7 +239,7 @@ index 6084619..cb51ebb 100644
  mod web;
  
 diff --git a/apps/photocraft-web/src/web.rs b/apps/photocraft-web/src/web.rs
-index 5f6b71e..790d28b 100644
+index 5f6b71e..b7538cf 100644
 --- a/apps/photocraft-web/src/web.rs
 +++ b/apps/photocraft-web/src/web.rs
 @@ -81,6 +81,7 @@ pub fn start() {
@@ -281,11 +287,12 @@ index 5f6b71e..790d28b 100644
          screen_pick: screen_color_service(),
          import: Some(Box::new(|name: &str, bytes: &[u8], opts: &photocraft_io::ImportOptions| {
              photocraft_io::import_with_options(name, bytes, opts).map(|r| (r.document, r.warnings)).map_err(|e| e.to_string())
-@@ -545,6 +556,13 @@ fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egu
+@@ -545,6 +556,14 @@ fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egu
              }
          })),
          write: Some(Box::new(|path: &str, bytes: &[u8]| download(path, bytes))),
 +        browser_paste: Some(Box::new(crate::browser_recovery::paste_clipboard)),
++        browser_start_action: Some(Box::new(crate::browser_recovery::start_action)),
 +        browser_remove_background: Some(Box::new(crate::browser_background::start)),
 +        clipboard_set_image: Some(Box::new(|w, h, rgba| {
 +            let image = Image::from_u8(w, h, ChannelLayout::Rgba, rgba.to_vec()).map_err(|error| error.to_string())?;
@@ -295,7 +302,7 @@ index 5f6b71e..790d28b 100644
          // A download may be cancelled and never reports back: it doesn't save the document.
          write_unconfirmed: true,
          encode_png: Some(Box::new(|w, h, rgba| {
-@@ -561,7 +579,9 @@ fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egu
+@@ -561,7 +580,9 @@ fn services(inbox: Inbox, place_inbox: PlaceInbox, cursor_pos: photocraft_ui_egu
          save_gpu_memo: None,
          shader_compiler: None,
          ..Default::default()
@@ -306,7 +313,7 @@ index 5f6b71e..790d28b 100644
  }
  
  const PREFS_KEY: &str = "photocraft.preferences";
-@@ -679,3 +699,35 @@ fn screen_color_service() -> Option<photocraft_ui_egui::screen_picker::Service>
+@@ -679,3 +700,35 @@ fn screen_color_service() -> Option<photocraft_ui_egui::screen_picker::Service>
          Pending { receiver: rx, cancelled }
      }))
  }
@@ -509,6 +516,484 @@ index 1aa8111..d404212 100644
          actions::suspended_guard(self, id)?;
          if let Some(result) = panel_docking::command(self, id, &params) {
              return result;
+diff --git a/crates/ui-egui/src/canvas/start_screen.rs b/crates/ui-egui/src/canvas/start_screen.rs
+index b033500..fb01e7a 100644
+--- a/crates/ui-egui/src/canvas/start_screen.rs
++++ b/crates/ui-egui/src/canvas/start_screen.rs
+@@ -1,283 +1,159 @@
+-use super::tabs::{open_on_double_click, paint_dots};
++use super::tabs::open_on_double_click;
+ use super::{PhotocraftApp, Rect, Sense};
++use egui::{Color32, RichText, vec2, pos2, Align2, FontId, Stroke, StrokeKind};
++
++pub(crate) const SCHOOL_PRESETS: &[crate::new_doc_ui::Preset] = &[
++    ("A4 portrait", 2480, 3508, 300.0),
++    ("A4 landscape", 3508, 2480, 300.0),
++    ("Presentation", 1920, 1080, 72.0),
++    ("Square artwork", 1080, 1080, 72.0),
++];
++
++fn new_project(app: &mut PhotocraftApp, preset: Option<&crate::new_doc_ui::Preset>) {
++    let mut fields = app.new_document_fields();
++    fields.insert("__category".into(), serde_json::json!("Classroom"));
++    if let Some(preset) = preset {
++        crate::new_doc_ui::apply_preset(&mut fields, preset, &app.session.prefs().units_and_rulers);
++    }
++    app.ui.open_dialog(crate::state::DialogKind::NewDocument, fields);
++}
++
++fn studio_art(ui: &mut egui::Ui) {
++    let (r, _) = ui.allocate_exact_size(vec2(270.0,180.0),Sense::hover());
++    let p = ui.painter();
++    let blue = Color32::from_rgb(67,102,255);
++    let paper = Rect::from_min_size(r.min+vec2(46.0,7.0),vec2(170.0,158.0));
++    p.rect_filled(paper.translate(vec2(12.0,12.0)),8.0,Color32::from_black_alpha(45));
++    p.rect_filled(paper.translate(vec2(-17.0,9.0)),8.0,Color32::from_rgb(184,169,255));
++    p.rect_filled(paper,8.0,blue);
++    p.circle_filled(paper.min+vec2(127.0,42.0),31.0,Color32::from_rgb(218,242,119));
++    p.text(paper.min+vec2(17.0,18.0),Align2::LEFT_TOP,"MAKE\nYOUR\nMARK.",crate::theme::semibold(29.0),Color32::WHITE);
++    p.circle_filled(r.min+vec2(38.0,139.0),26.0,Color32::from_rgb(255,137,107));
++    p.line_segment([r.min+vec2(23.0,139.0),r.min+vec2(53.0,139.0)],Stroke::new(2.5,Color32::from_rgb(19,36,75)));
++    p.line_segment([r.min+vec2(38.0,124.0),r.min+vec2(38.0,154.0)],Stroke::new(2.5,Color32::from_rgb(19,36,75)));
++    let selection = paper.expand(5.0);
++    p.rect_stroke(selection,1.0,Stroke::new(1.0,Color32::from_rgb(155,181,255)),StrokeKind::Inside);
++    for corner in [selection.left_top(),selection.right_top(),selection.left_bottom(),selection.right_bottom()] {
++        p.rect_filled(Rect::from_center_size(corner,vec2(6.0,6.0)),0.0,Color32::WHITE);
++    }
++}
+ 
+ pub(super) fn start_screen(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
+     let area = ui.available_rect_before_wrap();
+-    paint_dots(ui, area, app.session.prefs().interface.show_canvas_dots);
+     open_on_double_click(app, ui, area);
+-
+-    // File › Open Recent, newest first (on the web there are no paths to reopen).
+-    let show_recent = app.session.prefs().interface.show_home_recent_files;
+-    let recent: Vec<String> =
+-        if cfg!(target_arch = "wasm32") || !show_recent { Vec::new() } else { app.ui.recent_files.iter().take(HOME_RECENT).cloned().collect() };
+-
+-    let is_narrow = area.width() < 640.0;
+-    let pad_x = if is_narrow { 16.0 } else { 36.0 };
+-    let pad_y = if is_narrow { 24.0 } else { 54.0 };
+-    let rail_w = 170.0;
+-
+-    if is_narrow {
+-        let card_w = (area.width() - 32.0).clamp(0.0, 520.0);
+-        let card = Rect::from_center_size(area.center(), egui::vec2(card_w, (area.height() - 40.0).max(0.0)));
+-        ui.scope_builder(egui::UiBuilder::new().max_rect(card), |ui| {
+-            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+-                render_start_actions_row(app, ui, card.width());
+-                ui.add_space(16.0);
+-                render_start_content(app, ui, &recent, card.width());
++    let width = (area.width() - 40.0).clamp(180.0, 1080.0);
++    let rect = Rect::from_min_size(pos2(area.center().x - width / 2.0, area.top() + 24.0), vec2(width, (area.height() - 24.0).max(0.0)));
++    let t = crate::theme::Tokens::get(ui.ctx());
++    ui.scope_builder(egui::UiBuilder::new().max_rect(rect), |ui| {
++        egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
++            ui.set_width(width);
++            ui.horizontal(|ui| {
++                let (mark, _) = ui.allocate_exact_size(vec2(48.0,48.0), Sense::hover());
++                crate::panels::brand::paint_mark(ui, mark);
++                ui.add_space(8.0);
++                ui.vertical(|ui| {
++                    ui.label(RichText::new("PhotoCraft").size(30.0).strong().color(t.text));
++                    ui.label(RichText::new("Your ideas. Your canvas.").size(14.0).color(t.text_dim));
++                });
+             });
+-        });
+-    } else {
+-        let rail_rect = Rect::from_min_size(egui::pos2(area.left() + pad_x, area.top() + pad_y), egui::vec2(rail_w, area.height() - pad_y * 2.0));
+-        let content_x = rail_rect.right() + 36.0;
+-        let content_rect = Rect::from_min_max(egui::pos2(content_x, area.top() + pad_y), egui::pos2(area.right() - pad_x, area.bottom() - 16.0));
+-
+-        // 1. Left Navigation Rail
+-        ui.scope_builder(egui::UiBuilder::new().max_rect(rail_rect), |ui| {
+-            render_start_rail(app, ui, rail_rect.width());
+-        });
+-
+-        // 2. Right Content Area (scrollable)
+-        ui.scope_builder(egui::UiBuilder::new().max_rect(content_rect), |ui| {
+-            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+-                render_start_content(app, ui, &recent, content_rect.width());
++            ui.add_space(22.0);
++            egui::Frame::new().fill(Color32::from_rgb(19,36,75)).corner_radius(16.0).inner_margin(24.0).show(ui, |ui| {
++                ui.set_min_width((width - 44.0).max(0.0));
++                ui.horizontal_top(|ui| {
++                    ui.vertical(|ui| {
++                        ui.set_width(if width > 800.0 {width-350.0} else {width-50.0});
++                        ui.label(RichText::new("A LITTLE CURIOSITY. ENDLESS POSSIBILITIES.").size(10.0).strong().color(Color32::from_rgb(184,200,255)));
++                        ui.add_space(8.0);
++                        ui.label(RichText::new("Big ideas.\nStart here.").size(if width<480.0 {34.0}else{44.0}).strong().color(Color32::WHITE));
++                        ui.add_space(8.0);
++                        ui.label(RichText::new("Turn a photo, a blank page or a spark of an idea into something your own.").size(14.0).color(Color32::from_rgb(204,215,240)));
++                    });
++                    if width>800.0 {studio_art(ui);}
++                });
++                ui.add_space(18.0);
++                ui.horizontal_wrapped(|ui| {
++                    if ui.add_sized([150.0,42.0], egui::Button::new(RichText::new("New project  +").strong().color(Color32::from_rgb(19,36,75))).fill(Color32::from_rgb(218,242,119))).clicked() {new_project(app,None);}
++                    if ui.add_sized([180.0,42.0], egui::Button::new("Open from computer")).clicked() {let _ = app.open_dialog_file();}
++                    if app.services.browser_start_action.is_some() && ui.add_sized([180.0,42.0],egui::Button::new("Recovery & saving")).clicked() {
++                        if let Some(action) = app.services.browser_start_action.as_mut() {let _ = action("recovery");}
++                    }
++                    if !app.session.documents().is_empty() && ui.add_sized([150.0,42.0],egui::Button::new("Back to your work")).clicked() {app.ui.chrome.home = None;}
++                });
++            });
++            ui.add_space(22.0);
++            ui.label(RichText::new("Start with a canvas").size(18.0).strong());
++            ui.label(RichText::new("Choose a size, then customise the details before creating.").color(t.text_dim));
++            ui.add_space(10.0);
++            ui.horizontal_wrapped(|ui| {
++                ui.spacing_mut().item_spacing = vec2(12.0,12.0);
++                let card_w = if width < 480.0 {(width - 16.0) / 2.0} else {((width - 48.0) / 4.0).min(250.0)};
++                for (index,preset) in SCHOOL_PRESETS.iter().enumerate() {
++                    let (r, response) = ui.allocate_exact_size(vec2(card_w,146.0),Sense::click());
++                    response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button,true,preset.0));
++                    ui.painter().rect_filled(r,8.0,if response.hovered(){t.hover}else{t.field});
++                    let colors = [Color32::from_rgb(67,102,255),Color32::from_rgb(184,169,255),Color32::from_rgb(255,137,107),Color32::from_rgb(218,242,119)];
++                    ui.painter().rect_filled(Rect::from_min_size(r.min+vec2(5.0,5.0),vec2(r.width()-10.0,76.0)),5.0,colors[index]);
++                    if response.hovered(){ui.painter().rect_stroke(r,8.0,Stroke::new(1.5,t.accent),StrokeKind::Inside);}
++                    let scale = 58.0 / preset.1.max(preset.2) as f32;
++                    let page = Rect::from_center_size(pos2(r.center().x,r.top()+44.0),vec2(preset.1 as f32*scale,preset.2 as f32*scale));
++                    ui.painter().rect_filled(page,2.0,Color32::from_rgb(226,235,249));
++                    let inset = page.shrink(5.0);
++                    ui.painter().rect_filled(Rect::from_min_size(inset.min,vec2(inset.width(),inset.height()*0.4)),1.0,t.accent);
++                    ui.painter().line_segment([pos2(inset.left(),inset.center().y+5.0),pos2(inset.right(),inset.center().y+5.0)],Stroke::new(2.0,Color32::from_rgb(126,151,187)));
++                    ui.painter().text(pos2(r.center().x,r.top()+98.0),Align2::CENTER_CENTER,preset.0,FontId::proportional(14.0),t.text);
++                    ui.painter().text(pos2(r.center().x,r.top()+124.0),Align2::CENTER_CENTER,format!("{} × {} px",preset.1,preset.2),FontId::proportional(11.0),t.text_dim);
++                    if response.on_hover_cursor(egui::CursorIcon::PointingHand).clicked(){new_project(app,Some(preset));}
++                }
++            });
++            ui.add_space(18.0);
++            let (drop, response) = ui.allocate_exact_size(vec2(width-8.0,88.0),Sense::click());
++            response.widget_info(||egui::WidgetInfo::labeled(egui::Role::Button,true,"Browse for an image or project"));
++            ui.painter().rect_stroke(drop,8.0,Stroke::new(1.0,if response.hovered(){t.accent}else{t.separator}),StrokeKind::Inside);
++            ui.painter().text(pos2(drop.center().x,drop.top()+27.0),Align2::CENTER_CENTER,"Drop an image or project here, or click to browse",FontId::proportional(if width<480.0{12.0}else{15.0}),t.text);
++            ui.painter().text(pos2(drop.center().x,drop.top()+57.0),Align2::CENTER_CENTER,"PNG · JPEG · WebP · PSD · .pcraft projects",FontId::proportional(11.0),t.text_dim);
++            if response.clicked(){let _ = app.open_dialog_file();}
++            ui.add_space(20.0);
++            ui.label(RichText::new("A little help to get started").size(18.0).strong());
++            ui.add_space(6.0);
++            for (title,body) in [
++                ("Build with layers", "Use separate layers for images, text and shapes. Drag a layer in the Layers panel to change what appears in front. Download a .pcraft project to keep your work editable."),
++                ("Remove a background", "Select an image layer, then Select → Remove Background. The first use downloads the model. Processing happens on this device; the result is an editable mask. Undo restores the original."),
++                ("Add text and fonts", "Choose the Type tool and click your canvas. Choose Fonts & import in the top tools to load TTF/OTF files or use this PC’s fonts. Save before applying fonts: it restarts the editor."),
++                ("Save a project and export an image", "Save a .pcraft project to continue editing later. Export a PNG or JPEG for sharing. Recovery copies stay in this browser profile and can be cleared by browser or school settings; keep downloaded copies too."),
++            ] {egui::CollapsingHeader::new(title).show(ui,|ui|{ui.label(body);});}
++            ui.add_space(16.0);
++            ui.label(RichText::new("Editing happens on this device. Download your project to keep a copy.").color(t.text_dim));
++            ui.add_space(12.0);
++            ui.horizontal_wrapped(|ui| {
++                if ui.link("PhotoCraft project & credits").clicked(){crate::links::open(app,ui.ctx(),crate::links::GITHUB);}
++                ui.label("•");
++                if ui.link("More tutorials").clicked(){crate::links::open(app,ui.ctx(),crate::links::TUTORIALS);}
+             });
++            ui.add_space(20.0);
+         });
+-    }
+-}
+-
+-fn render_start_actions_row(app: &mut PhotocraftApp, ui: &mut egui::Ui, avail_w: f32) {
+-    let t = crate::theme::Tokens::get(ui.ctx());
+-    let btn_w = ((avail_w - 12.0) / 2.0).clamp(0.0, 150.0);
+-
+-    ui.horizontal(|ui| {
+-        // [ New file ]
+-        let new_label = tl!("New file");
+-        let (new_rect, new_resp) = ui.allocate_exact_size(egui::vec2(btn_w, 32.0), Sense::click());
+-        new_resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, new_label));
+-        let new_resp = new_resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+-        let new_bg = if new_resp.hovered() { egui::Color32::from_rgb(41, 131, 245) } else { egui::Color32::from_rgb(26, 115, 232) };
+-        ui.painter().rect_filled(new_rect, 4.0, new_bg);
+-        ui.painter().text(new_rect.center(), egui::Align2::CENTER_CENTER, new_label, crate::theme::semibold(13.0), egui::Color32::WHITE);
+-        if new_resp.clicked() {
+-            let fields = app.new_document_fields();
+-            app.ui.open_dialog(crate::state::DialogKind::NewDocument, fields);
+-        }
+-
+-        ui.add_space(8.0);
+-
+-        // [ Open… ]
+-        let open_label = tl!("Open…");
+-        let (open_rect, open_resp) = ui.allocate_exact_size(egui::vec2(btn_w, 32.0), Sense::click());
+-        open_resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, open_label));
+-        let open_resp = open_resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+-        if open_resp.hovered() {
+-            ui.painter().rect_filled(open_rect, 4.0, t.hover);
+-        }
+-        ui.painter().rect_stroke(open_rect, 4.0, egui::Stroke::new(1.0, t.separator), egui::StrokeKind::Inside);
+-        ui.painter().text(open_rect.center(), egui::Align2::CENTER_CENTER, open_label, crate::theme::semibold(13.0), t.text);
+-        if open_resp.clicked() {
+-            let _ = app.open_dialog_file();
+-        }
+     });
+ }
+ 
+-fn render_start_rail(app: &mut PhotocraftApp, ui: &mut egui::Ui, rail_w: f32) {
+-    let t = crate::theme::Tokens::get(ui.ctx());
+-
+-    ui.add_space(8.0);
+-
+-    // 1. [ New file ] button
+-    let new_label = tl!("New file");
+-    let (new_rect, new_resp) = ui.allocate_exact_size(egui::vec2(rail_w.min(130.0), 32.0), Sense::click());
+-    new_resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, new_label));
+-    let new_resp = new_resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+-    let new_bg = if new_resp.hovered() { egui::Color32::from_rgb(41, 131, 245) } else { egui::Color32::from_rgb(26, 115, 232) };
+-    ui.painter().rect_filled(new_rect, 4.0, new_bg);
+-    ui.painter().text(new_rect.center(), egui::Align2::CENTER_CENTER, new_label, crate::theme::semibold(13.0), egui::Color32::WHITE);
+-    if new_resp.clicked() {
+-        let fields = app.new_document_fields();
+-        app.ui.open_dialog(crate::state::DialogKind::NewDocument, fields);
+-    }
+-
+-    ui.add_space(8.0);
+-
+-    // 2. [ Open… ] button
+-    let open_label = tl!("Open…");
+-    let (open_rect, open_resp) = ui.allocate_exact_size(egui::vec2(rail_w.min(130.0), 30.0), Sense::click());
+-    open_resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, open_label));
+-    let open_resp = open_resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+-    if open_resp.hovered() {
+-        ui.painter().rect_filled(open_rect, 4.0, t.hover);
+-    }
+-    ui.painter().rect_stroke(open_rect, 4.0, egui::Stroke::new(1.0, t.separator), egui::StrokeKind::Inside);
+-    ui.painter().text(open_rect.center(), egui::Align2::CENTER_CENTER, open_label, crate::theme::semibold(13.0), t.text);
+-    if open_resp.clicked() {
+-        let _ = app.open_dialog_file();
+-    }
+-
+-    ui.add_space(16.0);
+-
+-    // Separator line
+-    let sep_w = 150.0f32.min(rail_w);
+-    let (sep_rect, _) = ui.allocate_exact_size(egui::vec2(sep_w, 1.0), Sense::hover());
+-    ui.painter().line_segment([sep_rect.min, egui::pos2(sep_rect.max.x, sep_rect.min.y)], egui::Stroke::new(1.0, t.separator));
+-
+-    ui.add_space(14.0);
+-
+-    // 3. "Home" Nav Item (Selected)
+-    let (home_rect, home_resp) = ui.allocate_exact_size(egui::vec2(rail_w, 32.0), Sense::click());
+-    home_resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, tl!("Home")));
+-    // Home hides the tab strip and options bar, so this entry is the way back to the open
+-    // documents (with none open there is nothing behind Home).
+-    if app.session.documents().is_empty() {
+-        // Nothing to go back to.
+-    } else if home_resp.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+-        app.ui.chrome.home = None;
+-    }
+-    let active_bar = Rect::from_min_size(egui::pos2(home_rect.left(), home_rect.center().y - 7.0), egui::vec2(1.5, 14.0));
+-    ui.painter().rect_filled(active_bar, 1.0, t.accent);
+-    let house_box = Rect::from_center_size(egui::pos2(home_rect.left() + 20.0, home_rect.center().y), egui::vec2(16.0, 16.0));
+-    crate::icons::paint(ui, house_box, "house", 16.0, t.text);
+-    ui.painter().text(egui::pos2(home_rect.left() + 34.0, home_rect.center().y), egui::Align2::LEFT_CENTER, tl!("Home"), crate::theme::semibold(13.5), t.text);
+-
+-    ui.add_space(4.0);
+-
+-    // 4. "Learn" Nav Item
+-    let (learn_rect, learn_resp) = ui.allocate_exact_size(egui::vec2(rail_w, 32.0), Sense::click());
+-    let learn_resp = learn_resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+-    learn_resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, tl!("Learn")));
+-    if learn_resp.hovered() {
+-        ui.painter().rect_filled(learn_rect, 4.0, t.hover);
+-    }
+-    let learn_color = if learn_resp.hovered() { t.text } else { t.text_dim };
+-    let sparkle_box = Rect::from_center_size(egui::pos2(learn_rect.left() + 20.0, learn_rect.center().y), egui::vec2(16.0, 16.0));
+-    crate::icons::paint(ui, sparkle_box, "sparkles", 16.0, learn_color);
+-    ui.painter().text(
+-        egui::pos2(learn_rect.left() + 34.0, learn_rect.center().y),
+-        egui::Align2::LEFT_CENTER,
+-        tl!("Learn"),
+-        crate::theme::semibold(13.5),
+-        learn_color,
+-    );
+-    if learn_resp.clicked() {
+-        crate::links::open(app, ui.ctx(), crate::links::TUTORIALS);
+-    }
+-
+-    // 5. Bottom pinned community links
+-    let bottom_h = 100.0;
+-    let avail_h = ui.available_height();
+-    let spacer = (avail_h - bottom_h - 20.0).max(24.0);
+-    ui.add_space(spacer);
+-
+-    let (b_sep_rect, _) = ui.allocate_exact_size(egui::vec2(sep_w, 1.0), Sense::hover());
+-    ui.painter().line_segment([b_sep_rect.min, egui::pos2(b_sep_rect.max.x, b_sep_rect.min.y)], egui::Stroke::new(1.0, t.separator));
+-
+-    ui.add_space(8.0);
+-
+-    render_rail_link(app, ui, rail_w, tl!("Website"), "link", crate::links::APP_PAGE);
+-    render_rail_link(app, ui, rail_w, tl!("Discord"), "message-square", crate::links::DISCORD);
+-    render_rail_link(app, ui, rail_w, tl!("GitHub"), "link-2", crate::links::GITHUB);
+-}
+-
+-fn render_rail_link(app: &mut PhotocraftApp, ui: &mut egui::Ui, rail_w: f32, label: &str, icon_name: &str, url: &str) {
+-    let t = crate::theme::Tokens::get(ui.ctx());
+-    let (rect, resp) = ui.allocate_exact_size(egui::vec2(rail_w, 28.0), Sense::click());
+-    let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text(url);
+-    if resp.hovered() {
+-        ui.painter().rect_filled(rect, 4.0, t.hover);
+-    }
+-    let color = if resp.hovered() { t.text } else { t.text_dim };
+-    let icon_box = Rect::from_center_size(egui::pos2(rect.left() + 20.0, rect.center().y), egui::vec2(14.0, 14.0));
+-    crate::icons::paint(ui, icon_box, icon_name, 14.0, color);
+-    ui.painter().text(egui::pos2(rect.left() + 34.0, rect.center().y), egui::Align2::LEFT_CENTER, label, crate::theme::medium(12.0), color);
+-    if resp.clicked() {
+-        crate::links::open(app, ui.ctx(), url);
+-    }
++pub(crate) fn start_screen_drop_hint(_app: &PhotocraftApp) -> std::borrow::Cow<'static,str> {
++    "Drop an image or PSD anywhere to open it.".into()
+ }
+ 
+-fn render_start_content(app: &mut PhotocraftApp, ui: &mut egui::Ui, recent: &[String], content_w: f32) {
+-    let t = crate::theme::Tokens::get(ui.ctx());
+-    ui.add_space(8.0);
+-
+-    // Top Row: [01] PhotoCraft
+-    ui.horizontal(|ui| {
+-        let badge_size = egui::vec2(24.0, 19.0);
+-        let (badge_rect, _) = ui.allocate_exact_size(badge_size, Sense::hover());
+-        ui.painter().rect_filled(badge_rect, 3.0, egui::Color32::from_rgb(26, 115, 232));
+-        ui.painter().text(badge_rect.center(), egui::Align2::CENTER_CENTER, "01", crate::theme::semibold(10.5), egui::Color32::WHITE);
+-
+-        ui.add_space(10.0);
+-
+-        let title_galley = ui.painter().layout_no_wrap(tl!("PhotoCraft").into(), crate::theme::semibold(20.0), t.text);
+-        let (title_r, _) = ui.allocate_exact_size(title_galley.size(), Sense::hover());
+-        ui.painter().galley(title_r.min, title_galley, t.text);
+-    });
+-
+-    ui.add_space(18.0);
+-
+-    // Hairline separator under header
+-    let (sep_r, _) = ui.allocate_exact_size(egui::vec2(content_w, 1.0), Sense::hover());
+-    ui.painter().line_segment([sep_r.min, egui::pos2(sep_r.max.x, sep_r.min.y)], egui::Stroke::new(1.0, t.separator));
+-
+-    ui.add_space(24.0);
+-
+-    if recent.is_empty() {
+-        render_first_run_content(app, ui, content_w);
+-    } else {
+-        crate::home_recent_ui::show_home_recent(app, ui, recent, content_w);
+-    }
+-
+-    ui.add_space(24.0);
+-}
+-
+-fn render_first_run_content(app: &mut PhotocraftApp, ui: &mut egui::Ui, content_w: f32) {
+-    let t = crate::theme::Tokens::get(ui.ctx());
+-
+-    let drop_w = 540.0f32.min(content_w - 24.0);
+-    let drop_h = 200.0;
+-
+-    // Center vertically in available content area
+-    let avail_h = ui.available_height();
+-    let top_space = ((avail_h - drop_h) / 2.0 - 50.0).max(40.0);
+-    ui.add_space(top_space);
+-
+-    // Center horizontally across content_w
+-    let pad_x = ((content_w - drop_w) / 2.0).max(0.0);
+-    ui.horizontal(|ui| {
+-        ui.add_space(pad_x);
+-
+-        let (drop_r, drop_resp) = ui.allocate_exact_size(egui::vec2(drop_w, drop_h), Sense::click());
+-        let drop_resp = drop_resp.on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text(tl!("Open…"));
+-        let is_hov = drop_resp.hovered();
+-
+-        let border_color = if is_hov { t.text_dim } else { t.separator };
+-        let bg_color = if is_hov { t.hover } else { egui::Color32::TRANSPARENT };
+-        ui.painter().rect_filled(drop_r, 8.0, bg_color);
+-        ui.painter().rect_stroke(drop_r, 8.0, egui::Stroke::new(1.0, border_color), egui::StrokeKind::Inside);
+-
+-        // Centered icon & message
+-        let icon_box = Rect::from_center_size(egui::pos2(drop_r.center().x, drop_r.center().y - 18.0), egui::vec2(40.0, 40.0));
+-        crate::icons::paint(ui, icon_box, "image", 34.0, if is_hov { t.text } else { t.text_dim });
+-
+-        let drop_msg = start_screen_drop_hint(app);
+-        ui.painter().text(
+-            egui::pos2(drop_r.center().x, drop_r.center().y + 20.0),
+-            egui::Align2::CENTER_CENTER,
+-            drop_msg,
+-            crate::theme::medium(14.0),
+-            if is_hov { t.text } else { t.text_faint },
+-        );
+-
+-        if drop_resp.clicked() {
+-            let _ = app.open_dialog_file();
++#[cfg(test)]
++mod school_start_tests {
++    use super::*;
++    #[test]
++    fn preset_actions_open_reviewable_dialogs_without_creating_documents() {
++        for preset in SCHOOL_PRESETS {
++            let mut app = PhotocraftApp::new(photocraft_engine::Session::new(),crate::Services::default());
++            new_project(&mut app,Some(preset));
++            assert!(app.session.documents().is_empty());
++            let fields = &app.ui.dialogs.last().unwrap().fields;
++            assert_eq!(fields["width"].as_u64(),Some(u64::from(preset.1)));
++            assert_eq!(fields["height"].as_u64(),Some(u64::from(preset.2)));
++            assert_eq!(fields["__category"],"Classroom");
++            let params = crate::new_doc_ui::command_params(fields);
++            app.run("file.new",params).unwrap();
++            assert_eq!(app.session.active().unwrap().doc.size.width,preset.1);
+         }
+-    });
+-}
+-
+-/// Hint displayed on the start screen for opening files.
+-pub(crate) fn start_screen_drop_hint(_app: &PhotocraftApp) -> std::borrow::Cow<'static, str> {
+-    tl!("Drop an image or PSD anywhere to open it.").into()
++    }
+ }
+-
+-/// Recent files listed on the Home screen.
+-const HOME_RECENT: usize = 11;
+diff --git a/crates/ui-egui/src/dialogs/new_doc_ui.rs b/crates/ui-egui/src/dialogs/new_doc_ui.rs
+index f662842..ef58aae 100644
+--- a/crates/ui-egui/src/dialogs/new_doc_ui.rs
++++ b/crates/ui-egui/src/dialogs/new_doc_ui.rs
+@@ -17,6 +17,7 @@ pub type Preset = (&'static str, u32, u32, f32);
+ 
+ /// Photoshop's New Document categories and their blank-document presets.
+ pub const CATEGORIES: &[(&str, &[Preset])] = &[
++    ("Classroom", &[("A4 portrait",2480,3508,300.0),("A4 landscape",3508,2480,300.0),("Presentation",1920,1080,72.0),("Square artwork",1080,1080,72.0)]),
+     ("Recent", &[("Default PhotoCraft Size", 2100, 1500, 300.0), ("HDTV 1080p", 1920, 1080, 72.0)]),
+     (
+         "Photo",
+@@ -309,7 +310,9 @@ fn card_title(painter: &egui::Painter, title: &str, width: f32, color: egui::Col
+ fn page_icon(ui: &egui::Ui, r: Rect, w: u32, h: u32, t: &Tokens) {
+     let s = 30.0 / (w.max(h) as f32);
+     let page = Rect::from_center_size(r.center(), vec2(w as f32 * s, h as f32 * s));
+-    ui.painter().rect_stroke(page, 1.0, Stroke::new(1.2, t.text_dim), StrokeKind::Inside);
++    ui.painter().rect_filled(page, 2.0, egui::Color32::from_rgb(226,235,249));
++    let inner = page.shrink(4.0);
++    ui.painter().rect_filled(Rect::from_min_size(inner.min, vec2(inner.width(),inner.height()*0.4)),1.0,t.accent);
+ }
+ 
+ /// The Background Contents menu's entry for a colour of the user's own ([`body`]).
+@@ -530,10 +533,10 @@ pub fn body(app: &mut crate::PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<Strin
+     // Headings and field labels are static, as in Photoshop: no text cursor over them, no
+     // drag-selecting them (#8331). Text fields keep theirs.
+     ui.style_mut().interaction.selectable_labels = false;
+-    let cat = get_s(f, "__category", "Recent");
++    let cat = get_s(f, "__category", "Classroom");
+     let mut create = false;
+-    // Category tabs.
+-    ui.horizontal(|ui| {
++    // Category tabs wrap on narrower windows.
++    ui.horizontal_wrapped(|ui| {
+         ui.spacing_mut().item_spacing.x = 18.0;
+         for name in CATEGORIES.iter().map(|c| c.0).chain(["Saved"]) {
+             let on = cat == name;
+@@ -554,7 +557,7 @@ pub fn body(app: &mut crate::PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<Strin
+     ui.add_space(8.0);
+     let units = app.session.prefs().units_and_rulers.clone();
+     let presets: Vec<Card> = match CATEGORIES.iter().find(|c| c.0 == cat) {
+-        Some(c) if c.0 != CATEGORIES[0].0 => c.1.iter().copied().map(Card::Builtin).collect(),
++        Some(c) if c.0 != "Recent" => c.1.iter().copied().map(Card::Builtin).collect(),
+         _ => recent_cards(f, &app.session.presets.recent_documents, &units),
+     };
+     let presets: Vec<Card> = presets
 diff --git a/crates/ui-egui/src/menu_catalog.rs b/crates/ui-egui/src/menu_catalog.rs
 index d6db835..65df42e 100644
 --- a/crates/ui-egui/src/menu_catalog.rs
@@ -680,15 +1165,16 @@ index c2fecf6..83021d7 100644
      f.insert("toolbarHidden".into(), json!(hidden));
  }
 diff --git a/crates/ui-egui/src/services.rs b/crates/ui-egui/src/services.rs
-index 6e28f00..b348818 100644
+index 6e28f00..06e0b80 100644
 --- a/crates/ui-egui/src/services.rs
 +++ b/crates/ui-egui/src/services.rs
-@@ -561,6 +561,10 @@ pub struct Services {
+@@ -561,6 +561,11 @@ pub struct Services {
      /// OS clipboard images: copies go out, screenshots and images from other apps come in.
      pub clipboard_set_image: Option<ClipboardSetFn>,
      pub clipboard_get_image: Option<ClipboardGetFn>,
 +    /// True when a browser host accepted an asynchronous image paste.
 +    pub browser_paste: Option<Box<dyn FnMut() -> Result<bool, String> + Send>>,
++    pub browser_start_action: Option<Box<dyn FnMut(&str) -> Result<(), String> + Send>>,
 +    /// On-device model service, applied asynchronously to the unchanged source layer.
 +    pub browser_remove_background: Option<Box<dyn FnMut(&Document, u64, u64) -> Result<(), String> + Send>>,
      /// SVG text copied by another app: imported only by an explicit pixels/path/shape paste,

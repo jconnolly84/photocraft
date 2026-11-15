@@ -45,6 +45,7 @@ jobs:
           node scripts/test_font_file_import.cjs
           node scripts/test_image_paste.cjs
           node scripts/test_background_removal.cjs
+          node scripts/test_start_screen.cjs
       - name: Check local recovery transactions
         run: |
           npm install --prefix "$RUNNER_TEMP/recovery-tests" fake-indexeddb@6.2.8 --no-audit --no-fund

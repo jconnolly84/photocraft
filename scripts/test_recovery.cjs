@@ -49,9 +49,14 @@ function host(options = {}) {
   await first.win.photocraftRecoverySave({docId: '1', revision: '2', name: 'Layered document', bytes});
   const second = host();
   assert.equal((await second.win.photocraftRecoveryLoad()).length, 0, 'Do not recover a live tab');
+  assert.equal((await second.win.photocraftRecoverySummary()).length, 0, 'Home recovery must exclude live tabs');
   await second.win.photocraftRecoverySave({docId: '1', revision: '1', name: 'Other live tab', bytes});
   first.crash();
   const restored = host();
+  const summary = await restored.win.photocraftRecoverySummary();
+  assert.equal(summary.length, 1);
+  assert.equal(summary[0].name, 'Layered document');
+  assert.equal('bytes' in summary[0], false, 'Home summary must not read or expose document bytes');
   const snapshots = await restored.win.photocraftRecoveryLoad();
   assert.equal(snapshots.length, 1);
   assert.equal(snapshots[0].name, 'Layered document');
@@ -67,6 +72,7 @@ function host(options = {}) {
   assert.equal((await storedSnapshots()).filter(row => row.key === snapshots[0].key).length, 0);
   const disabled = host({disabled: true});
   await assert.rejects(disabled.win.photocraftRecoveryLoad(), /disabled/);
+  await assert.rejects(disabled.win.photocraftRecoverySummary(), /disabled/);
   await restored.win.photocraftClipboardWrite(bytes);
   assert.equal(restored.writes.length, 1);
   const copied = restored.writes[0][0].data['image/png'];
