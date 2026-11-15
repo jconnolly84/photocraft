@@ -42,6 +42,7 @@ replace(toolbar, pen + '\n' + type_slot, type_slot + '\n' + pen)
 replace(source / 'crates/ui-egui/src/prefs/prefs_ui/dialogs.rs', '        hidden.clear();', '        hidden = photocraft_engine::prefs::ToolbarCustomization::default().hidden;')
 
 web = source / 'apps/photocraft-web/src/web.rs'
+replace(source / 'apps/photocraft-web/Cargo.toml', 'egui = { workspace = true }', 'egui = { workspace = true }\nserde_json = { workspace = true }')
 replace(web, '                    initialize_default_panels(&mut app);', '                    initialize_default_panels(&mut app);\n                    initialize_default_toolbar(&mut app);')
 with web.open('a', encoding='utf-8', newline='\n') as f:
     f.write('''
