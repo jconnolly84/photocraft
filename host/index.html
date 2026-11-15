@@ -40,6 +40,7 @@
   </style>
   <script src="./build-config.js" defer></script>
   <script src="./recovery.js" defer></script>
+  <script src="./start-screen.js" defer></script>
   <script src="./shortcuts.js" defer></script>
   <script src="./banner.js" defer></script>
   <script src="./font-file-info.js" defer></script>
@@ -61,6 +62,8 @@
     <p>Changed documents are saved about every minute. Recovery copies stay in this browser profile, not online.</p>
     <p>Anyone using this same profile may recover its copies. Private browsing or school profile cleanup can erase them. Keep downloaded .pcraft copies too.</p>
     <p id="recovery-status" role="status" aria-live="polite">Checking recovery storage…</p>
+    <div id="recovery-available" aria-live="polite"></div>
+    <button id="recovery-reload" type="button" hidden>Reload editor to recover copies</button>
     <button id="recovery-keep" type="button">Protect browser storage</button>
     <button id="recovery-clear" type="button">Clear old recovery copies</button>
   </details>

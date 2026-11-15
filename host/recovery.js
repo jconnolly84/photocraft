@@ -99,6 +99,10 @@
     }
     return selected;
   }
+  window.photocraftRecoverySummary = async () => {
+    await queue;
+    return (await recoverable()).map(row => ({name: String(row.name || 'Recovered document').slice(0,256), updated: row.updated}));
+  };
   window.photocraftRecoveryLoad = async () => {
     if (!enabled) throw new Error('Recovery disabled');
     // A font-setting change may restart only the editor iframe. Finish its old
