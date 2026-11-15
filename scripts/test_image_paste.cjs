@@ -121,6 +121,11 @@ const browserImage = () => [{types: ['image/png'], getType: async () => image}];
   assert.equal(deliveries.length,beforeSeparate+3,'The toolbar starts an independent paste');
   clipboardEvents.pointerdown(); hostWindow.photocraftBrowserPaste(); await tick();
   assert.equal(deliveries.length,beforeSeparate+4,'An explicit Edit → Paste remains independent');
+  ctrlV(); paste(imageItems());
+  const beforeKeyboardMenu = deliveries.length;
+  clipboardEvents.keydown({key:'Alt',altKey:true});
+  hostWindow.photocraftBrowserPaste(); await tick();
+  assert.equal(deliveries.length,beforeKeyboardMenu+1,'Keyboard menu activation is also a new paste intent');
 
   // Old reads must never target a newer gesture or a restarted editor.
   clipboard.read = () => new Promise(resolve=>{finishRead=resolve;});

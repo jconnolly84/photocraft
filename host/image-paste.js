@@ -51,14 +51,16 @@
     // PhotoCraft's editable layer clipboard may not be exported to the browser.
     // Keep a copy/paste made wholly inside the editor on its native path.
     win.addEventListener('keydown', event => {
-      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'v' && !preferInternalClipboard) {
+      const key = event.key.toLowerCase();
+      if (key !== 'v') keyboardIntent = null;
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && key === 'v' && !preferInternalClipboard) {
         if (!event.repeat) keyboardIntent = beginIntent();
         // Keep Chrome's default action, which supplies the actual paste event,
         // but do not also queue the app's Ctrl+V command and browser read.
         // Text paste still reaches eframe through its normal paste event.
         event.stopImmediatePropagation();
       }
-      if ((event.ctrlKey || event.metaKey) && !event.altKey && ['c', 'x'].includes(event.key.toLowerCase())) {
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && ['c', 'x'].includes(key)) {
         copiedInternally();
       }
     }, {capture: true});
