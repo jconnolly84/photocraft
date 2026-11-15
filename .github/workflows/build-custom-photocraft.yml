@@ -44,6 +44,10 @@ jobs:
         with:
           workspaces: upstream
           key: photocraft-custom-web
+      - name: Check all hosted native font categories
+        # Check the actual native category filters before the longer browser build.
+        # This includes every family in the hosted catalog, before font download.
+        run: python scripts/test_custom_font_categories.py upstream
       - name: Install upstream packaging tools
         uses: storytold/craft-common-actions/actions/install-trunk@main
         with:

@@ -77,6 +77,9 @@ rows.sort(key=lambda r: (r[0].casefold(), r[1]))
 extra = ROOT / 'font-library/dafont-manifest.txt'
 if extra.exists():
     rows.extend([[v.strip() for v in line.split('|')] for line in extra.read_text(encoding='utf-8').splitlines() if line.strip()])
+expanded = ROOT / 'font-library/expanded-manifest.txt'
+if expanded.exists():
+    rows.extend([[v.strip() for v in line.split('|')] for line in expanded.read_text(encoding='utf-8').splitlines() if line.strip()])
 save('fonts/manifest.txt', ('# family | style | file | scripts | licence | licence file | sha256 | source\n' +
      '\n'.join(' | '.join(row) for row in rows) + '\n').encode())
 save('SOURCES.json', json.dumps({'craft_fonts_commit': CRAFT, 'google_fonts_commit': GOOGLE,

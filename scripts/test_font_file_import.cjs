@@ -59,5 +59,5 @@ async function request(action, name) {
   assert.equal(rows.length, 1); assert.equal(rows[0].family, 'Lobster');
   assert.equal(rows[0].format, 'ttf');
   assert.deepEqual(new Uint8Array((await request('bytes', rows[0].postscriptName)).bytes), new Uint8Array(buffer()));
-  console.log('All 117 font names, malformed bounds, file staging, selection cancellation, API-independent importing and exact private bytes passed.');
+  console.log(`All ${manifest.length} font faces, malformed bounds, file staging, selection cancellation, API-independent importing and exact private bytes passed.`);
 })().catch(error => {console.error(error); process.exitCode = 1;});

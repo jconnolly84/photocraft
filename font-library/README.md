@@ -1,6 +1,6 @@
 # Fonts for the PhotoCraft web host
 
-72 families / 117 font files. Fonts load on demand
+148 families / 270 font files. Fonts load on demand
 through PhotoCraft's supported `fonts/manifest.txt`; they are not added to Wasm.
 Every family retains its licence beside its files. No proprietary Windows fonts
 are included. Font names are the fonts' real internal names, not Microsoft aliases.
@@ -23,7 +23,8 @@ These open fonts can also be installed on Windows for use in Inkscape.
 ## Selection
 
 - Blackletter: UnifrakturCook, UnifrakturMaguntia, Pirata One, Grenze Gotisch,
-  New Rocker and Germania One. All six are from the pinned Google Fonts source,
+  New Rocker and Germania One, plus Fruktur, Astloch, Jolly Lodger, Jacquard 12,
+  Jacquard 24, Jacquarda Bastarda 9 and MedievalSharp. These are from the pinned Google Fonts source,
   retain their SIL OFL licences, and appear in the native Blackletter category.
 
 - Everyday and editorial: Inter, Lato, Montserrat, Open Sans, Roboto, Poppins,
@@ -40,6 +41,27 @@ These open fonts can also be installed on Windows for use in Inkscape.
 The manifest lists the exact families, available styles, hashes and sources.
 Variable fonts offer weight choices through their weight axis. Character coverage
 varies: this is primarily a Latin design catalog, not complete worldwide coverage.
+
+## Expanded sections
+
+| Section | Families | Examples added |
+| --- | ---: | --- |
+| Serif | 17 | Lora, EB Garamond, Bodoni Moda, Libre Baskerville |
+| Slab Serif | 13 | Arvo, Bitter, Roboto Slab, Zilla Slab |
+| Sans Serif | 26 | DM Sans, Manrope, Outfit, Space Grotesk |
+| Script | 15 | Allura, Alex Brush, Parisienne, Yellowtail |
+| Monospace | 15 | JetBrains Mono, Fira Code, IBM Plex Mono, Source Code Pro |
+| Handwritten | 17 | Architects Daughter, Handlee, Schoolbell, Rock Salt |
+| Blackletter | 13 | Fruktur, Astloch, Jacquard 12, MedievalSharp |
+| Decorative | 32 | Rubik Glitch, Nosifer, Rampart One, Zen Tokyo Zoo |
+
+The 76 additional families retain their complete OFL or Apache licences and
+unmodified TTFs, including variable faces. `EXPANDED-SOURCES.json` records the
+pinned upstream commit, exact download URLs, SHA256s, licence and category.
+`scripts/import_more_fonts.py` also verifies every downloaded Git blob against
+the official repository's pinned tree. Its entries survive a base-catalog
+reimport; run `scripts/build_font_catalog.py` afterwards. Rebuild the native app
+when categories change so the menu filters classify unloaded fonts too.
 
 ## Provenance and maintenance
 
