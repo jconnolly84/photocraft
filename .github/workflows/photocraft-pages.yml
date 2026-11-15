@@ -38,6 +38,10 @@ jobs:
         run: |
           python scripts/build_font_catalog.py
           python scripts/prepare_photocraft.py
+      - name: Install video validation tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Check browser integrations
         run: |
           node scripts/test_shortcuts.cjs
