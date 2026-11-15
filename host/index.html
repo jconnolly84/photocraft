@@ -36,6 +36,12 @@
     #background-tools { position: fixed; bottom: 34px; left: 50%; transform: translateX(-50%); z-index: 30; max-width: calc(100vw - 40px); padding: 10px 12px; background: #252525; border: 1px solid #777; border-radius: 6px; box-shadow: 0 3px 15px #0008; }
     #background-tools[hidden] { display: none; }
     #background-tools p { margin: 0 0 8px; }
+    #tutorial-dialog { width: min(1280px,96vw); height: 92vh; max-width: 96vw; max-height: 96vh; padding: 0; color: #f4f5f8; background: #11131b; border: 1px solid #626779; border-radius: 14px; }
+    #tutorial-dialog[open] { display: flex; flex-direction: column; }
+    #tutorial-dialog::backdrop { background: #080b16cc; }
+    #tutorial-dialog header { display: flex; align-items: center; gap: 14px; padding: 12px 16px; }
+    #tutorial-dialog header strong { margin-right: auto; }
+    #tutorial-dialog iframe { flex: 1; min-height: 0; }
 
   </style>
   <script src="./build-config.js" defer></script>
@@ -93,6 +99,7 @@
     <ul id="font-list"></ul>
   </details>
   <button id="fullscreen-toggle" type="button" aria-pressed="false">Full screen</button>
+  <button id="open-tutorial" type="button">Make an advert</button>
   <span id="fullscreen-status" role="status" aria-live="polite"></span>
   <button id="hide-toolbar" type="button" aria-controls="host-toolbar" aria-expanded="true">Hide tools</button>
   </nav>
@@ -103,5 +110,12 @@
   </aside>
   <iframe id="editor" title="PhotoCraft image editor"
     allow="fullscreen; clipboard-read; clipboard-write" allowfullscreen></iframe>
+  <dialog id="tutorial-dialog" aria-labelledby="tutorial-title">
+    <header><strong id="tutorial-title">PhotoCraft Studio · Make an advert</strong>
+      <a href="./tutorial/" target="_blank" rel="noopener">Open guide in a new tab ↗</a>
+      <button id="close-tutorial" type="button">Back to the editor ×</button>
+    </header>
+    <iframe id="tutorial-frame" title="Make your move — GCSE advert tutorial" allow="clipboard-write; clipboard-read" loading="lazy"></iframe>
+  </dialog>
 </body>
 </html>

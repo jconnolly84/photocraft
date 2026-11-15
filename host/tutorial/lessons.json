@@ -1,0 +1,522 @@
+{
+  "title": "Make your move",
+  "brand": "FLUX",
+  "level": "GCSE · beginner to confident",
+  "lessons": [
+    {
+      "id": "01-brief",
+      "number": "01",
+      "title": "Read the brief",
+      "short": "The creative brief",
+      "time": "5 min",
+      "phase": "Think",
+      "intro": "Create a striking print advert for FLUX 01, a fictional trainer. Your job is to communicate movement, individuality and confidence through your design—not to recreate a real sports brand.",
+      "image": "assets/downloads/final-advert.png",
+      "imageAlt": "Finished FLUX trainer advert used as an example, not a design students must copy",
+      "video": null,
+      "steps": [
+        {
+          "title": "Choose an audience",
+          "text": "Write one sentence naming your intended audience and what visual style would appeal to them. Avoid claiming that everyone in an age group likes the same thing."
+        },
+        {
+          "title": "Define your message",
+          "text": "Use MAKE YOUR MOVE as the starting headline, or write your own short alternative. Decide what you want the viewer to notice first, second and third."
+        },
+        {
+          "title": "Plan the essentials",
+          "text": "Include a product image, a brand name, a headline and a clear call to action. Use FLUX 01 as the model name. The brand and product are fictional classroom assets; do not invent factual performance claims."
+        },
+        {
+          "title": "Sketch two possibilities",
+          "text": "Try different product angles, headline positions and amounts of empty space. Choose one direction and explain why it suits your audience."
+        }
+      ],
+      "check": "You can explain your audience, intended message and first visual focal point.",
+      "pitfall": "A visually busy page is not automatically a powerful advert. Make one element lead.",
+      "challenge": "Change the audience and sketch how your palette, typography and composition would need to change.",
+      "reason": "A clear intention gives you a reason for each editing decision and something specific to evaluate afterwards."
+    },
+    {
+      "id": "02-setup",
+      "number": "02",
+      "title": "Set up the document",
+      "short": "Canvas & resolution",
+      "time": "4 min",
+      "phase": "Build",
+      "intro": "Start with a predictable print canvas. Getting the dimensions right now makes the rest of the composition easier.",
+      "image": "assets/screenshots/02-setup.jpg",
+      "imageAlt": "PhotoCraft New Document dialog showing A4 portrait dimensions and 300 ppi",
+      "video": "assets/clips/02-setup.mp4",
+      "steps": [
+        {
+          "title": "Start a new project",
+          "text": "From PhotoCraft Home, choose A4 portrait under Start with a canvas. You can also choose New project and select the Classroom preset."
+        },
+        {
+          "title": "Check dimensions and resolution",
+          "text": "Use 2480 × 3508 pixels, portrait orientation, with 300 pixels/inch resolution. If dimensions show inches, change the units to Pixels to inspect the pixel size."
+        },
+        {
+          "title": "Keep the colour setup simple",
+          "text": "Use RGB colour, 8 bit and a white background for this lesson. Name the project FLUX advert – your name, then choose Create."
+        },
+        {
+          "title": "Understand the numbers",
+          "text": "Pixels describe the actual image dimensions. PPI describes how tightly those pixels are placed when printed. Changing a PPI label does not create extra detail in a small source photograph."
+        }
+      ],
+      "check": "The document status shows 2480 × 3508 px and 300 ppi.",
+      "pitfall": "Do not enter 210 × 297 while the units are Pixels. Those are A4 dimensions in millimetres, not pixels.",
+      "challenge": "Explain why a social-media square and an A4 print advert need different document dimensions.",
+      "reason": "A deliberate format helps you design for the place your audience will actually see the advert."
+    },
+    {
+      "id": "02b-guides",
+      "number": "03",
+      "title": "Set rulers and alignment guides",
+      "short": "Rulers & guides",
+      "time": "5 min",
+      "phase": "Build",
+      "intro": "Give the advert a clear structure before adding the artwork. Rulers and non-printing guides help you keep margins and line up elements consistently.",
+      "image": "assets/screenshots/02b-guides.jpg",
+      "imageAlt": "PhotoCraft rulers and alignment guides around the advert canvas",
+      "video": "assets/clips/02b-guides.mp4",
+      "steps": [
+        {
+          "title": "Show the rulers",
+          "text": "Choose View → Rulers. The scales along the top and left let you judge position and spacing. Keep the document dimensions in mind: this A4 canvas is 2480 × 3508 pixels."
+        },
+        {
+          "title": "Create a consistent margin",
+          "text": "Choose View → Guides → New Guide Layout… to set up a margin or column structure. For a single guide, use View → Guides → New Guide… and choose its direction and position. You can also drag a guide from a ruler. Use guides to plan clear space around the headline, brand and call to action."
+        },
+        {
+          "title": "Use snapping deliberately",
+          "text": "Enable View → Snap and View → Snap To → Guides when you want an element to align with a guide. If snapping pulls an element away from an intentional position, turn it off and judge the placement yourself."
+        },
+        {
+          "title": "Preview without the construction lines",
+          "text": "Use View → Show → Guides to hide or reveal the guides while judging the composition. Guides are alignment aids, not part of the artwork; they do not appear in the exported advert. Hide them for an uncluttered final preview."
+        }
+      ],
+      "check": "Rulers are visible, the canvas has a deliberate margin or guide structure, and you can hide the guides without changing the artwork.",
+      "pitfall": "A guide is not a drawn line. If you need a visible line in the final advert, create artwork on a layer instead of relying on a ruler guide.",
+      "challenge": "Compare a centred layout with a shared left-edge alignment. Use guides to build both, then explain which better supports your intended hierarchy.",
+      "reason": "Consistent alignment and spacing make a bold advert feel controlled rather than accidentally crowded."
+    },
+    {
+      "id": "03-place",
+      "number": "04",
+      "title": "Place the practice assets",
+      "short": "Place Embedded",
+      "time": "5 min",
+      "phase": "Build",
+      "intro": "Build the advert from separate files. Place Embedded adds an asset to the current document, rather than opening an unrelated new document.",
+      "image": "assets/screenshots/03-place.jpg",
+      "imageAlt": "A trainer image being placed as its own layer in PhotoCraft",
+      "video": "assets/clips/03-place.mp4",
+      "asset": "trainer",
+      "steps": [
+        {
+          "title": "Download the practice pack",
+          "text": "Use the download button in this guide and extract the ZIP. Keep the original files in a project folder so you can locate them again."
+        },
+        {
+          "title": "Place a background",
+          "text": "Choose File → Place Embedded… and select background-grid.png. Fit it to the page and confirm the transform with the tick. Keep it above the original Background layer."
+        },
+        {
+          "title": "Place the trainer",
+          "text": "Choose File → Place Embedded… again and select trainer-original.png. Confirm the placement. The layer appears separately from the background."
+        },
+        {
+          "title": "Keep the source editable",
+          "text": "A placed image is a Smart Object. Keep that editable version while scaling and arranging it; do not rasterise simply to move or resize it."
+        }
+      ],
+      "check": "The background and trainer appear as separate entries in Layers.",
+      "pitfall": "File → Open opens a document. File → Place Embedded adds an image inside the document you are already designing.",
+      "challenge": "Compare placing an image with opening it as a new document. Explain when each approach is useful.",
+      "reason": "Separate, editable source assets give you more freedom to revise the composition."
+    },
+    {
+      "id": "04-move",
+      "number": "05",
+      "title": "Move, scale and rotate",
+      "short": "The Move tool",
+      "time": "5 min",
+      "phase": "Build",
+      "intro": "Make the trainer feel like the hero of the advert. Use size, angle and position deliberately rather than dragging until something looks busy.",
+      "image": "assets/screenshots/04-move.jpg",
+      "imageAlt": "Move tool options with Auto-Select and Show Transform Controls in PhotoCraft",
+      "video": "assets/clips/04-move.mp4",
+      "steps": [
+        {
+          "title": "Select the Move tool",
+          "text": "Choose the arrow/cross Move tool, or press V when you are not editing text."
+        },
+        {
+          "title": "Try Auto-Select",
+          "text": "With Auto-Select enabled and set to Layer, clicking visible artwork can select its layer. Turn it off when overlapping artwork makes it hard to choose the intended layer; select that layer directly in Layers instead."
+        },
+        {
+          "title": "Show the handles",
+          "text": "Enable Show Transform Controls. Select the trainer and use its transform handles to change size. Keep the width/height link enabled so the trainer stays in proportion."
+        },
+        {
+          "title": "Compose with intention",
+          "text": "Try a strong diagonal angle and a large product image. Leave readable space for your headline. Confirm the transform with the tick when you are happy."
+        }
+      ],
+      "check": "You can select the trainer, move it and resize it without stretching its proportions.",
+      "pitfall": "If the wrong object moves, check the selected layer and Auto-Select before undoing or dragging again.",
+      "challenge": "Make two compositions using the same assets. Compare how scale and diagonal direction change the sense of movement.",
+      "reason": "Scale and placement create visual emphasis before the viewer reads a single word."
+    },
+    {
+      "id": "05-layers",
+      "number": "06",
+      "title": "Organise the layers",
+      "short": "Layer order & names",
+      "time": "4 min",
+      "phase": "Build",
+      "intro": "A good advert file should be understandable when you return to it later. Treat the Layers panel as a visual plan of the composition.",
+      "image": "assets/screenshots/05-layers.jpg",
+      "imageAlt": "PhotoCraft Layers panel showing separately named advert elements",
+      "video": "assets/clips/05-layers.mp4",
+      "steps": [
+        {
+          "title": "Read the stack",
+          "text": "Layers higher in the list appear in front of lower layers where their visible pixels overlap. A full-page background near the top can hide your entire design."
+        },
+        {
+          "title": "Rename as you go",
+          "text": "Double-click a layer name and use a clear label, such as Trainer, Headline, Streaks, Badge and Background graphic. Avoid renaming the wrong layer thumbnail."
+        },
+        {
+          "title": "Reorder and compare",
+          "text": "Drag a layer up or down the stack. Use its eye icon to hide it temporarily and judge what that element contributes."
+        },
+        {
+          "title": "Protect your foundation",
+          "text": "Once the background is positioned, lock it if you keep selecting or moving it accidentally. Keep the trainer and text separately editable."
+        }
+      ],
+      "check": "You can identify each important element from its layer name and explain the order of the stack.",
+      "pitfall": "Hiding a layer is different from deleting it. Use the eye icon when you want to compare versions safely.",
+      "challenge": "Put part of the trainer in front of a headline and explain how that overlap creates depth without harming legibility.",
+      "reason": "An organised layer stack supports experimentation and makes a complex image easier to refine."
+    },
+    {
+      "id": "06-copy-paste",
+      "number": "07",
+      "title": "Copy an asset into the advert",
+      "short": "Copy & paste",
+      "time": "4 min",
+      "phase": "Build",
+      "intro": "Use both file-based placement and clipboard-based placement. This chapter uses the supplied badge so you practise a second way of bringing an image into your work.",
+      "image": "assets/screenshots/06-copy-paste.jpg",
+      "imageAlt": "A copied graphic placed as one image layer in PhotoCraft",
+      "video": "assets/clips/06-copy-paste.mp4",
+      "asset": "badge",
+      "steps": [
+        {
+          "title": "Copy the badge",
+          "text": "Choose Copy image on the badge asset card below. If the browser blocks this, right-click the full-size badge image and choose Copy image—not Copy image address."
+        },
+        {
+          "title": "Focus the editor",
+          "text": "Return to PhotoCraft, click inside the editor, then press Ctrl+V. The image should appear as one placed layer. Confirm its placement with the tick."
+        },
+        {
+          "title": "Position it deliberately",
+          "text": "Use the Move tool to place the badge where it supports the composition. Make it smaller than the main headline so it does not compete for first attention."
+        },
+        {
+          "title": "Know the fallback",
+          "text": "If clipboard permissions are restricted, download flux-badge.png and use File → Place Embedded instead. Copying a web address provides text, not the image itself."
+        }
+      ],
+      "check": "One paste has created one badge layer. You can move it independently.",
+      "pitfall": "Clicking a browser tab's address bar and pasting there does not paste into PhotoCraft. Click the editor first.",
+      "challenge": "Explain which workflow you would choose for an original photograph: a downloaded source file or a copied web image, and why.",
+      "reason": "Knowing both routes helps you work reliably across different browser and school settings."
+    },
+    {
+      "id": "07-remove-background",
+      "number": "08",
+      "title": "Remove the trainer's background",
+      "short": "Background removal",
+      "time": "5 min",
+      "phase": "Refine",
+      "intro": "Separate the trainer from its studio background so it can sit convincingly over your own design. Keep an editable mask rather than treating the cut-out as a finished result you cannot revisit.",
+      "image": "assets/screenshots/07-remove-background.jpg",
+      "imageAlt": "Trainer cut-out with a layer mask after PhotoCraft background removal",
+      "video": "assets/clips/07-remove-background.mp4",
+      "videoNote": "Processing wait shortened in this clip; the actual wait depends on your computer. Do not edit the document while removal runs.",
+      "asset": "trainer",
+      "steps": [
+        {
+          "title": "Choose the correct layer",
+          "text": "Select the Trainer image layer in Layers. Make sure you are not selecting the full-page background, a text layer or an unrelated graphic."
+        },
+        {
+          "title": "Run the remover",
+          "text": "Choose Select → Remove Background. PhotoCraft applies a pending transform first. On first use, it downloads the AI model; let it finish. Processing then runs on this device."
+        },
+        {
+          "title": "Inspect the mask",
+          "text": "The trainer layer should gain a black-and-white mask thumbnail. Your background graphic should show around the trainer, without an extra duplicate image layer."
+        },
+        {
+          "title": "Judge the edge",
+          "text": "Zoom in around the sole, laces and gaps. Keep the result only if it is suitable for your advert. Undo restores the previous state; complex edges may need further mask refinement."
+        }
+      ],
+      "check": "The studio backdrop is gone, the trainer remains on its own layer and the mask thumbnail is visible.",
+      "pitfall": "Do not move, paste or edit the document while removal is running. A document-change warning protects your work from an outdated mask result.",
+      "challenge": "Compare the cut-out over a light and a dark background. Which reveals edge problems most clearly?",
+      "reason": "A convincing cut-out helps multiple source images feel like one designed composition."
+    },
+    {
+      "id": "08-text",
+      "number": "09",
+      "title": "Build the headline",
+      "short": "Text & typography",
+      "time": "6 min",
+      "phase": "Refine",
+      "intro": "Let type carry the message. Use a small, deliberate type system rather than a different decorative font for every line.",
+      "image": "assets/screenshots/08-text.jpg",
+      "imageAlt": "PhotoCraft Type tool and a bold MAKE YOUR MOVE headline",
+      "video": "assets/clips/08-text.mp4",
+      "steps": [
+        {
+          "title": "Add editable text",
+          "text": "Choose the Type tool, then click on the canvas. Replace the selected placeholder with MAKE YOUR MOVE. Confirm with the tick when finished."
+        },
+        {
+          "title": "Choose a clear pairing",
+          "text": "Try Bebas Neue for the main headline and Inter for smaller information. These are already available in PhotoCraft. Start with one display family and one supporting family."
+        },
+        {
+          "title": "Control scale and line breaks",
+          "text": "Make the headline large enough to read quickly. Try MAKE / YOUR / MOVE on separate lines. Adjust the size and position instead of stretching the letter shapes out of proportion."
+        },
+        {
+          "title": "Add the supporting message",
+          "text": "Use separate text layers for FLUX 01, a short descriptive line and a call to action such as FIND YOUR NEXT MOVE. Keep them clearly smaller than the headline."
+        }
+      ],
+      "check": "The headline is readable at a zoomed-out view, with supporting information in a clear second level.",
+      "pitfall": "Pressing V while editing text types a letter. Confirm the text first, then use the Move tool shortcut.",
+      "challenge": "Create a second typography version. Compare its character, readability and suitability for your intended audience.",
+      "reason": "Typeface, size, spacing and contrast communicate a brand's character as well as its words."
+    },
+    {
+      "id": "09-hierarchy",
+      "number": "10",
+      "title": "Give the advert a clear hierarchy",
+      "short": "Composition & contrast",
+      "time": "5 min",
+      "phase": "Refine",
+      "intro": "Step back from the tools and judge the design. Your viewer should understand where to look without being told.",
+      "image": "assets/screenshots/09-hierarchy.jpg",
+      "imageAlt": "Advert composition showing headline, trainer and smaller call to action",
+      "video": "assets/clips/09-hierarchy.mp4",
+      "steps": [
+        {
+          "title": "Set a reading order",
+          "text": "Decide whether the headline or trainer is noticed first. Use size, contrast and position to support that choice. The brand and call to action should still be easy to find."
+        },
+        {
+          "title": "Align with purpose",
+          "text": "Give text blocks a shared edge or a consistent relationship to the page. Leave a generous margin so important content does not feel accidentally cropped."
+        },
+        {
+          "title": "Use empty space",
+          "text": "Avoid filling every gap. Give the headline and product enough clear space to remain distinct from the background graphics."
+        },
+        {
+          "title": "Test at a distance",
+          "text": "Zoom out or ask a partner to view the advert briefly. Ask what they noticed first and what the advert is promoting—before explaining your intention."
+        }
+      ],
+      "check": "A partner can identify the product, main message and next action quickly.",
+      "pitfall": "A bright colour is not enough contrast if the background is equally bright and detailed. Judge the actual relationship between elements.",
+      "challenge": "Remove one element from the advert. Does the message become clearer? Explain your decision.",
+      "reason": "Hierarchy turns a collection of editing techniques into an effective piece of communication."
+    },
+    {
+      "id": "10-blend-modes",
+      "number": "11",
+      "title": "Blend the graphics into the design",
+      "short": "Layer blend modes",
+      "time": "6 min",
+      "phase": "Refine",
+      "intro": "A layer's blend mode changes how its colours interact with layers beneath it. Test the effect on the actual artwork rather than choosing a mode just because its name sounds dramatic.",
+      "image": "assets/screenshots/10-blend-modes.jpg",
+      "imageAlt": "PhotoCraft blend-mode dropdown showing a graphic layer blended into an advert",
+      "video": "assets/clips/10-blend-modes.mp4",
+      "asset": "streaks",
+      "steps": [
+        {
+          "title": "Add the streaks",
+          "text": "Place energy-streaks.png as a separate layer. Its black backdrop is intentional. Position it behind or beside the trainer so it suggests movement."
+        },
+        {
+          "title": "Try Screen",
+          "text": "With Streaks selected, change the Normal dropdown at the top of Layers to Screen. Black contributes little to a Screen result, allowing bright streaks to combine with the design underneath."
+        },
+        {
+          "title": "Try Multiply on the badge",
+          "text": "Select the dark badge on its white backdrop and try Multiply. White contributes little to a Multiply result while dark marks remain. This is different from making a true transparency mask."
+        },
+        {
+          "title": "Reduce the intensity",
+          "text": "Adjust layer opacity if the effect competes with the product or text. Toggle the layer's eye icon to compare before and after."
+        }
+      ],
+      "check": "You can explain why Screen suits the light-on-black streaks and Multiply suits a dark-on-white graphic.",
+      "pitfall": "Blend modes affect the whole selected layer. Do not change the trainer's blend mode by accident when you mean to blend the streaks.",
+      "challenge": "Compare Normal, Screen and Multiply on the same asset. Record what changes and choose the mode that supports your intention.",
+      "reason": "Blending can integrate source graphics and add energy without piling opaque rectangles over your composition."
+    },
+    {
+      "id": "11-layer-effects",
+      "number": "12",
+      "title": "Use blending options sparingly",
+      "short": "Layer styles",
+      "time": "5 min",
+      "phase": "Refine",
+      "intro": "Layer styles can help a product or headline separate from the background. They should support the design, rather than becoming its main attraction.",
+      "image": "assets/screenshots/11-layer-effects.jpg",
+      "imageAlt": "PhotoCraft Blending Options dialog used to apply a controlled layer effect",
+      "video": "assets/clips/11-layer-effects.mp4",
+      "steps": [
+        {
+          "title": "Open Blending Options",
+          "text": "Select the intended layer, then choose Layer → Layer Style → Blending Options…. This is the layer-style dialog, not the blend-mode dropdown from the previous chapter."
+        },
+        {
+          "title": "Test a subtle shadow",
+          "text": "Try Drop Shadow on the trainer or headline. Adjust opacity, distance and size while looking at the actual result. A small, soft shadow can create separation; a heavy halo can make the image less convincing."
+        },
+        {
+          "title": "Test a stroke where useful",
+          "text": "A restrained Stroke can help type hold its edge against a busy area. Compare it with moving the text to a clearer part of the page—an effect is not always the best solution."
+        },
+        {
+          "title": "Keep only what helps",
+          "text": "Compare the design with the effect enabled and disabled, then confirm the dialog. Use a consistent visual logic rather than different lighting directions on every element."
+        }
+      ],
+      "check": "You can point to a specific readability or depth problem that your chosen effect improves.",
+      "pitfall": "Blending Options and a layer's blend mode are related editing controls, but they are not interchangeable tools.",
+      "challenge": "Solve the same readability problem twice: once with a layer style and once using composition alone. Evaluate which solution is stronger.",
+      "reason": "Restraint makes a professional finish more convincing than applying every available effect."
+    },
+    {
+      "id": "12-history",
+      "number": "13",
+      "title": "Experiment with History",
+      "short": "History & undo",
+      "time": "4 min",
+      "phase": "Finish",
+      "intro": "Use History to investigate changes and recover from mistakes, while keeping proper saved versions of important stages.",
+      "image": "assets/screenshots/12-history.jpg",
+      "imageAlt": "PhotoCraft History panel listing recent advert edits",
+      "video": "assets/clips/12-history.mp4",
+      "steps": [
+        {
+          "title": "Find the panel",
+          "text": "History appears above Layers in the classroom workspace. If it is hidden, open it from the Window menu."
+        },
+        {
+          "title": "Make one controlled change",
+          "text": "Move an element or change an effect. Identify the matching new entry in History."
+        },
+        {
+          "title": "Step back and compare",
+          "text": "Use Ctrl+Z to undo, or select an earlier History state. Compare the result carefully. Moving back then making a fresh edit can replace the later branch of changes."
+        },
+        {
+          "title": "Save meaningful versions",
+          "text": "Keep separate downloaded project versions before major changes, such as flux-layout-v1.pcraft and flux-refined-v2.pcraft. History is not a replacement for saving or recovery."
+        }
+      ],
+      "check": "You can undo an intentional test edit and recognise the corresponding state in History.",
+      "pitfall": "Browser crashes, reloads and profile cleanup can affect session history. Keep downloaded editable project files.",
+      "challenge": "Capture two stages of your design and explain a specific improvement, rather than saying only that the final version looks better.",
+      "reason": "A documented editing process shows how experimentation informed your decisions."
+    },
+    {
+      "id": "13-export",
+      "number": "14",
+      "title": "Save the project and export the advert",
+      "short": "Save & export",
+      "time": "5 min",
+      "phase": "Finish",
+      "intro": "Keep an editable master as well as a finished image. These files do different jobs.",
+      "image": "assets/screenshots/13-export.jpg",
+      "imageAlt": "PhotoCraft export workflow for a finished advert",
+      "video": "assets/clips/13-export.mp4",
+      "steps": [
+        {
+          "title": "Download an editable project",
+          "text": "Use File → Save As… and keep a .pcraft project. This preserves your editable document for later work. Check the actual download location on your school computer."
+        },
+        {
+          "title": "Export a finished image",
+          "text": "Use File → Export → Export As… and choose PNG or JPEG. Check that you export the complete document at the intended size, not just a selected layer."
+        },
+        {
+          "title": "Choose the right format",
+          "text": "PNG is useful for crisp graphics and supports transparency. JPEG is useful for a smaller photographic image but does not retain transparency. Neither is a replacement for the editable project."
+        },
+        {
+          "title": "Inspect the download",
+          "text": "Open the exported file. Check the full composition, spelling, edges, contrast and cropping. Submit the files your teacher requests and keep the original assets with your project."
+        }
+      ],
+      "check": "You have both an editable .pcraft file and a finished PNG or JPEG that opens correctly.",
+      "pitfall": "A downloaded export is a flattened deliverable. Opening it again will not restore the separate text and image layers from your project.",
+      "challenge": "Compare a PNG and JPEG export at a similar viewing size. Look for file-size and image-quality differences before choosing a submission format.",
+      "reason": "Choosing and checking the output is part of the design process, not an administrative afterthought."
+    },
+    {
+      "id": "14-review",
+      "number": "15",
+      "title": "Review, explain and make it yours",
+      "short": "Evaluate your design",
+      "time": "6 min",
+      "phase": "Finish",
+      "intro": "The example is a starting point, not a target to trace. Your final advert should show your own purposeful decisions.",
+      "image": "assets/downloads/final-advert.png",
+      "imageAlt": "Example finished FLUX advert for comparison and evaluation",
+      "video": null,
+      "steps": [
+        {
+          "title": "Evaluate communication",
+          "text": "Explain what the advert communicates, who it is for and how the main image, typography and palette support that intention. Refer to specific visual evidence."
+        },
+        {
+          "title": "Evaluate technique",
+          "text": "Inspect the cut-out edge, transforms, type, alignment and effects. Name a technical problem you solved and how your method changed the result."
+        },
+        {
+          "title": "Show development",
+          "text": "Keep a sketch, an earlier screenshot and the finished outcome. Explain one decision you changed after testing or feedback."
+        },
+        {
+          "title": "Credit and extend",
+          "text": "Record the source of the supplied practice assets and any extra material you add. Label AI-generated practice imagery honestly. Build an original variation through a different audience, layout, copy or palette—not by copying a real brand's campaign."
+        }
+      ],
+      "check": "Your evaluation links intention, visual choices, technical decisions and evidence of development.",
+      "pitfall": "Listing the tools you used is not the same as explaining why those tools improved the advert.",
+      "challenge": "Adapt your advert for a square digital format while preserving its hierarchy. Explain what you moved, removed or changed.",
+      "reason": "A convincing outcome and a thoughtful explanation of your process strengthen each other."
+    }
+  ]
+}

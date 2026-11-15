@@ -1,0 +1,40 @@
+FLUX — MAKE YOUR MOVE
+PhotoCraft Studio / GCSE classroom practice assets
+
+This is a fictional trainer campaign. It is not an endorsement, a real product
+listing, or a factual claim about a trainer's performance.
+
+trainer-original.png
+Original product visual generated using OpenAI's built-in image_gen tool on
+15 November 2026. The concept is an unbranded cobalt/lime running trainer on a
+lavender-grey studio background. No real brand artwork or student images used.
+The image intentionally retains its background for the removal exercise.
+
+Generation prompt:
+One photorealistic premium sportswear product photograph for a GCSE classroom
+project. One original unbranded trainer, three-quarter lateral view, toe left,
+whole shoe visible. Electric cobalt woven mesh, acid-lime loops/outsole,
+sculpted white/charcoal sole. No real brand marks, text, feet or people. Clean
+opaque lavender-grey seamless studio background, soft separated shadow, crisp
+silhouette, landscape 3:2, commercial product lighting.
+
+background-grid.png / energy-streaks.png / flux-badge.png
+Original procedural graphic assets made for this project. Source script:
+scripts/create_tutorial_graphics.py in the PhotoCraft repository. The streaks
+use BLACK to teach Screen; the badge uses WHITE to teach Multiply. They are
+not screenshots, and are not presented as PhotoCraft UI.
+
+These supplied classroom assets may be downloaded, remixed and used for your
+own classroom projects and portfolios. Suggested credit: PhotoCraft Studio
+practice assets / original AI-generated trainer visual. Be clear about supplied
+or AI-generated imagery when reflecting on your own work.
+
+Fonts in the badge: Bebas Neue and Inter, open-licensed under the SIL Open Font
+License. See the accompanying licence notices and the existing PhotoCraft font
+library. No proprietary font files are redistributed in this practice pack.
+
+Tutorial screenshots and MP4 demonstrations are captures of the actual
+PhotoCraft browser app. PhotoCraft's original licences/notices remain on the
+main site. Short demonstrations isolate a skill; real processing can take longer.
+
+The final-advert.png is a 306 x 434 pixel screen preview of the actual PhotoCraft example, not a full-resolution print export. Rebuild the design with the full-resolution practice assets; export your own finished document.

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Build a bold fictional trainer advert in PhotoCraft. A GCSE-friendly guide with short silent demonstrations, screenshots and downloadable practice assets.">
+  <title>Make Your Move — PhotoCraft Studio Guide</title>
+  <link rel="icon" href="../favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to the lesson</a>
+  <header class="topbar">
+    <a class="brand" href="#overview" aria-label="PhotoCraft Studio Guide home"><img src="../favicon.ico" alt="" width="34" height="34"><span>PhotoCraft <b>STUDIO GUIDE</b></span></a>
+    <div class="topbar-actions"><button id="menu-toggle" class="menu-toggle" type="button" aria-controls="sidebar" aria-expanded="false">Chapters <span aria-hidden="true">☰</span></button><a class="editor-link" href="../" target="_blank" rel="noopener">Open PhotoCraft <span aria-hidden="true">↗</span></a></div>
+  </header>
+  <div class="layout">
+    <aside id="sidebar" class="sidebar" aria-label="Tutorial navigation">
+      <div class="course-label">THE FLUX PROJECT <span>01</span></div>
+      <a class="overview-link" href="#overview"><span aria-hidden="true">↖</span> Start here</a>
+      <div class="progress-heading"><span>Your progress</span><strong id="progress-count">0 / 15</strong></div>
+      <progress id="progress-bar" max="15" value="0" aria-label="Completed chapters">0 of 15</progress>
+      <nav id="chapter-nav" aria-label="Chapters"></nav>
+      <div class="sidebar-footer"><a href="#assets">Practice assets <span aria-hidden="true">↓</span></a><a href="#teacher">Teacher notes <span aria-hidden="true">↗</span></a><button id="reset-progress" type="button">Reset my progress</button><p>Progress is saved only in this browser. It is not sent to your teacher.</p></div>
+    </aside>
+    <main id="main" tabindex="-1"><p class="loading">Loading your studio guide…</p></main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <dialog id="reset-dialog" aria-labelledby="reset-title"><h2 id="reset-title">Reset your chapter ticks?</h2><p>This clears only this guide’s progress in this browser. Your PhotoCraft projects and downloads are untouched.</p><div class="dialog-actions"><button id="cancel-reset" class="button button-quiet" type="button">Keep progress</button><button id="confirm-reset" class="button button-primary" type="button">Reset chapter ticks</button></div></dialog>
+  <noscript><div class="noscript">Enable JavaScript to use the chapter navigation. You can still <a href="assets/downloads/practice-pack.zip" download>download the practice pack</a> and <a href="../">open PhotoCraft</a>.</div></noscript>
+</body>
+</html>

@@ -61,6 +61,8 @@ site = target.parent
 for asset in (root / 'host').iterdir():
     if asset.is_file():
         shutil.copyfile(asset, site / asset.name)
+if (root / 'host/tutorial').is_dir():
+    shutil.copytree(root / 'host/tutorial',site / 'tutorial')
 # Local inference assets are versioned, checksum-verified static files.
 ai = root / 'ai-assets'
 if ai.is_dir():

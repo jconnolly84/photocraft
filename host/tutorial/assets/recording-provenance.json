@@ -1,0 +1,119 @@
+[
+  {
+    "lesson": "02-setup",
+    "method": "chronological captures of actual PhotoCraft UI actions",
+    "processing_wait_shortened": false,
+    "captured_frames": 23,
+    "capture_duration_ms": 8264,
+    "clip_duration_ms": 8264,
+    "audio": false
+  },
+  {
+    "lesson": "02b-guides",
+    "method": "chronological captures of actual PhotoCraft UI actions",
+    "processing_wait_shortened": false,
+    "captured_frames": 77,
+    "capture_duration_ms": 8049,
+    "clip_duration_ms": 8049,
+    "audio": false
+  },
+  {
+    "lesson": "03-place",
+    "method": "chronological captures of actual PhotoCraft UI actions",
+    "processing_wait_shortened": false,
+    "captured_frames": 80,
+    "capture_duration_ms": 9042,
+    "clip_duration_ms": 9042,
+    "audio": false
+  },
+  {
+    "lesson": "04-move",
+    "method": "chronological captures of actual PhotoCraft UI actions",
+    "processing_wait_shortened": false,
+    "captured_frames": 73,
+    "capture_duration_ms": 8602,
+    "clip_duration_ms": 8602,
+    "audio": false
+  },
+  {
+    "lesson": "05-layers",
+    "method": "chronological captures of actual PhotoCraft UI actions",
+    "processing_wait_shortened": false,
+    "captured_frames": 82,
+    "capture_duration_ms": 8561,
+    "clip_duration_ms": 8561,
+    "audio": false
+  },
+  {
+    "lesson": "06-copy-paste",
+    "method": "chronological captures of actual PhotoCraft UI actions",
+    "processing_wait_shortened": false,
+    "captured_frames": 78,
+    "capture_duration_ms": 8114,
+    "clip_duration_ms": 8114,
+    "audio": false
+  },
+  {
+    "lesson": "07-remove-background",
+    "method": "chronological captures of actual PhotoCraft UI actions",
+    "processing_wait_shortened": true,
+    "captured_frames": 60,
+    "capture_duration_ms": 7528,
+    "clip_duration_ms": 7528,
+    "audio": false
+  },
+  {
+    "lesson": "08-text",
+    "method": "chronological captures of actual PhotoCraft UI actions",
+    "processing_wait_shortened": false,
+    "captured_frames": 72,
+    "capture_duration_ms": 8522,
+    "clip_duration_ms": 8522,
+    "audio": false
+  },
+  {
+    "lesson": "09-hierarchy",
+    "method": "chronological captures of actual PhotoCraft UI actions",
+    "processing_wait_shortened": false,
+    "captured_frames": 81,
+    "capture_duration_ms": 8552,
+    "clip_duration_ms": 8552,
+    "audio": false
+  },
+  {
+    "lesson": "10-blend-modes",
+    "method": "chronological captures of actual PhotoCraft UI actions",
+    "processing_wait_shortened": false,
+    "captured_frames": 71,
+    "capture_duration_ms": 8043,
+    "clip_duration_ms": 8043,
+    "audio": false
+  },
+  {
+    "lesson": "11-layer-effects",
+    "method": "chronological captures of actual PhotoCraft UI actions",
+    "processing_wait_shortened": false,
+    "captured_frames": 69,
+    "capture_duration_ms": 8575,
+    "clip_duration_ms": 8575,
+    "audio": false
+  },
+  {
+    "lesson": "12-history",
+    "method": "chronological captures of actual PhotoCraft UI actions",
+    "processing_wait_shortened": false,
+    "captured_frames": 74,
+    "capture_duration_ms": 8050,
+    "clip_duration_ms": 8050,
+    "audio": false
+  },
+  {
+    "lesson": "13-export",
+    "method": "chronological captures of actual PhotoCraft UI actions",
+    "processing_wait_shortened": false,
+    "captured_frames": 64,
+    "capture_duration_ms": 8548,
+    "clip_duration_ms": 8548,
+    "audio": false
+  }
+]

@@ -7,10 +7,12 @@ function setup(entries) {
   const make = () => ({hidden:true, children:[], handlers:{}, textContent:'',
     append(node){this.children.push(node);}, replaceChildren(){this.children=[];},
     addEventListener(event,handler){this.handlers[event]=handler;}, focus(){this.focused=true;},
-    click(){this.handlers.click?.();}, querySelector(){return this;}});
+    click(){this.handlers.click?.();}, querySelector(){return this;}, getAttribute(name){return this[name]||null;},
+    showModal(){this.open=true;},close(){this.open=false;this.handlers.close?.();},
+    contentWindow:{postMessage(message,origin){this.lastMessage={message,origin};}}});
   const get = id => {if(!elements.has(id))elements.set(id,make()); return elements.get(id);};
   get('show-toolbar').handlers.click = () => {get('host-toolbar').hidden=false;};
-  const win = {photocraftRecoverySummary: async()=>{if(entries instanceof Error)throw entries;return entries;}};
+  const win = {location:{origin:'https://example.test'},photocraftRecoverySummary: async()=>{if(entries instanceof Error)throw entries;return entries;}};
   vm.runInNewContext(fs.readFileSync('host/start-screen.js','utf8'),{
     window:win,document:{getElementById:get,createElement:make},Date,
     location:{reload(){reloads++;}}, fetch(){throw Error('No network allowed');}
@@ -37,5 +39,15 @@ function setup(entries) {
   assert.equal(failed.get('recovery-reload').hidden,true);
   assert.match(failed.get('recovery-available').children[0].textContent,/Storage blocked/);
   await assert.rejects(found.win.photocraftStartAction('unexpected'));
+  await found.win.photocraftStartAction('tutorial');
+  assert.equal(found.get('tutorial-dialog').open,true);
+  assert.equal(found.get('tutorial-frame').src,'./tutorial/');
+  assert.equal(found.reloads(),1,'Tutorial must not restart the existing editor');
+  found.get('close-tutorial').click();
+  assert.equal(found.get('tutorial-dialog').open,false);
+  assert.equal(found.get('tutorial-frame').contentWindow.lastMessage.message.type,'photocraft-tutorial-pause');
+  assert.equal(found.get('tutorial-frame').contentWindow.lastMessage.origin,'https://example.test');
+  found.get('open-tutorial').click();
+  assert.equal(found.get('tutorial-dialog').open,true);
   console.log('Start-screen recovery availability, safe names, errors and explicit reload passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

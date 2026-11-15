@@ -1,0 +1,14 @@
+FLUX — MAKE YOUR MOVE / PhotoCraft GCSE practice pack
+
+A fictional sportswear campaign for classroom design practice.
+trainer-original.png: original AI-generated product visual, unbranded; no real
+brand endorsement or product performance claim. Generated with OpenAI image_gen.
+background-grid.png: original cobalt/lime graphic, 2480 x 3508 px.
+energy-streaks.png: bright graphic on BLACK; use Screen blend mode.
+flux-badge.png: dark graphic on WHITE; use Multiply blend mode.
+
+The supplied assets may be downloaded, edited and reused in your own classroom
+projects and portfolios. Credit: PhotoCraft Studio classroom practice assets.
+Do not present the fictional product as a real commercial product.
+The badge uses the open-licensed Bebas Neue typeface (OFL); the licence is in
+the PhotoCraft font library. Final project fonts remain editable in .pcraft.

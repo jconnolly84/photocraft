@@ -1,6 +1,18 @@
 /* Entry-point assistance only; documents remain in the native browser editor. */
 (() => {
+  const tutorial = document.getElementById('tutorial-dialog');
+  const tutorialFrame = document.getElementById('tutorial-frame');
+  const openTutorial = () => {
+    if (!tutorialFrame.getAttribute('src')) tutorialFrame.src = './tutorial/';
+    if (!tutorial.open) tutorial.showModal();
+  };
+  document.getElementById('open-tutorial').addEventListener('click',openTutorial);
+  document.getElementById('close-tutorial').addEventListener('click',()=>tutorial.close());
+  tutorial.addEventListener('close',()=>{
+    tutorialFrame.contentWindow?.postMessage({type:'photocraft-tutorial-pause'},window.location.origin);
+  });
   window.photocraftStartAction = async action => {
+    if (action === 'tutorial') {openTutorial(); return;}
     if (action !== 'recovery') throw new Error('Unknown start action');
     const toolbar = document.getElementById('host-toolbar');
     if (toolbar.hidden) document.getElementById('show-toolbar').click();
