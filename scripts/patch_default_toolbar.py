@@ -58,6 +58,23 @@ impl ToolbarCustomization {
 toolbar = source / 'crates/ui-egui/src/panels/toolbar.rs'
 replace(toolbar, '&[Tool::Gradient, Tool::PaintBucket]', '&[Tool::PaintBucket, Tool::Gradient]')
 replace(toolbar, '&[Tool::ObjectSelection, Tool::QuickSelection, Tool::MagicWand]', '&[Tool::MagicWand, Tool::ObjectSelection, Tool::QuickSelection]')
+replace(toolbar, '''                                let long_press = held_for.is_some_and(|seconds| seconds >= 0.35);''', '''                                // A browser may coalesce the scheduled held frame with release.
+                                // Remember the original press independently of egui's current
+                                // down state so releasing a stationary hold still opens the list.
+                                let hold_start_id = key.with("hold-start");
+                                let now = ui.input(|i| i.time);
+                                if ui.input(|i| i.pointer.primary_pressed()
+                                    && i.pointer.press_origin().is_some_and(|p| resp.rect.contains(p))) {
+                                    ui.data_mut(|d| d.insert_temp(hold_start_id, now));
+                                }
+                                let held_release = ui.input(|i| i.pointer.primary_released()
+                                    && i.pointer.interact_pos().is_some_and(|p| resp.rect.contains(p)))
+                                    && ui.data(|d| d.get_temp::<f64>(hold_start_id))
+                                        .is_some_and(|start| now - start >= 0.35);
+                                if ui.input(|i| i.pointer.primary_released()) {
+                                    ui.data_mut(|d| d.remove::<f64>(hold_start_id));
+                                }
+                                let long_press = held_for.is_some_and(|seconds| seconds >= 0.35) || held_release;''')
 pen = '        &[Tool::Pen, Tool::FreeformPen, Tool::CurvaturePen, Tool::AddAnchorPoint, Tool::DeleteAnchorPoint, Tool::ConvertPoint],'
 type_slot = '        &[Tool::Type, Tool::VerticalType, Tool::VerticalTypeMask, Tool::HorizontalTypeMask],'
 replace(toolbar, pen + '\n' + type_slot, type_slot + '\n' + pen)
@@ -139,6 +156,31 @@ mod school_toolbar_tests {
         for (_, slot) in sections.iter().flatten() {
             assert!(slot.len() > 1 || slot == &vec![Tool::Zoom]);
         }
+    }
+    #[test]
+    fn stationary_hold_opens_even_without_an_intermediate_held_frame() {
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        let ctx = egui::Context::default();
+        PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::ALL[0]);
+        let frame = |app: &mut PhotocraftApp, time, events| {
+            ctx.run_ui(egui::RawInput {time: Some(time), events,
+                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(1200.0,1800.0))),
+                ..Default::default()}, |ui| toolbar::toolbar(app, ui))
+        };
+        frame(&mut app, 0.0, vec![]);
+        frame(&mut app, 0.1, vec![]);
+        let bx = if Tokens::get(&ctx).pro {30.0} else {36.0};
+        let mut buttons: Vec<Rect> = ctx.viewport(|v| v.prev_pass.widgets.layers()
+            .flat_map(|(_,widgets)| widgets.iter())
+            .filter(|w| w.rect.size() == egui::Vec2::splat(bx) && w.sense.senses_click())
+            .map(|w| w.rect).collect());
+        buttons.sort_by(|a,b| a.top().total_cmp(&b.top()));
+        let at = buttons[1].center();
+        let pointer = |pressed| egui::Event::PointerButton {pos:at,
+            button:egui::PointerButton::Primary,pressed,modifiers:Default::default()};
+        frame(&mut app, 1.0, vec![egui::Event::PointerMoved(at), pointer(true)]);
+        frame(&mut app, 1.5, vec![pointer(false)]);
+        assert!(ctx.data(|d| d.get_temp::<(egui::Id,Rect)>(egui::Id::unique("tool-flyout"))).is_some());
     }
 }
 ''')
