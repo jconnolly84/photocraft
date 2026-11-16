@@ -56,3 +56,39 @@ replace(commands, '        actions::suspended_guard(self, id)?;', '''        if 
         }
         actions::suspended_guard(self, id)?;''')
 print('Added local model background removal with transform commit/queueing, stale-document checks and quick fallback.')
+
+# The three subject tools share the existing worker/model and command lifecycle.
+with cutout.open('a',encoding='utf-8',newline='\n') as file:
+    file.write((root/'custom-source/subject_tools.rs').read_text(encoding='utf-8'))
+replace(cutout,'    specs\n}', '''    for (id,label) in [("select.subjectAI","Select Subject (AI)"),
+        ("layer.backgroundBlurAI","Blur Background (AI)"),("layer.replaceBackgroundAI","Replace Background (AI)")] {
+        specs.push(CommandSpec {id,label,menu:&[],shortcut:None,params:"{}",enabled,
+            run: |_,_| Err(EngineError::Other("This AI tool requires the browser host".into())),journal:true});
+    }
+    specs
+}''')
+replace(source/'crates/ui-egui/src/services.rs',
+    '    pub browser_remove_background: Option<Box<dyn FnMut(&Document, u64, u64) -> Result<(), String> + Send>>,',
+    '''    pub browser_remove_background: Option<Box<dyn FnMut(&Document, u64, u64) -> Result<(), String> + Send>>,
+    pub browser_subject_tool: Option<Box<dyn FnMut(&Document, u64, u64, &str) -> Result<(), String> + Send>>,''')
+replace(app/'src/web.rs','        browser_remove_background: Some(Box::new(crate::browser_background::start)),',
+    '        browser_remove_background: Some(Box::new(crate::browser_background::start)),\n        browser_subject_tool: Some(Box::new(crate::browser_background::start_tool)),')
+replace(commands,'matches!(id, "layer.removeBackground" | "layer.removeBackgroundQuick")',
+    'matches!(id, "layer.removeBackground" | "layer.removeBackgroundQuick" | "select.subjectAI" | "layer.backgroundBlurAI" | "layer.replaceBackgroundAI")')
+replace(commands,'        if id == "layer.removeBackground" && self.services.browser_remove_background.is_some() {',
+    '''        if matches!(id,"select.subjectAI"|"layer.backgroundBlurAI"|"layer.replaceBackgroundAI") && self.services.browser_subject_tool.is_some() {
+            self.session.precheck(id,&params).map_err(|e|e.to_string())?;
+            let st=self.session.active().ok_or("no document")?;
+            let layer=st.active_layer.ok_or("select an image layer")?;
+            let mode=match id {"select.subjectAI"=>"select","layer.backgroundBlurAI"=>"blur",_=>"replace"};
+            self.services.browser_subject_tool.as_mut().unwrap()(&st.doc,layer.0,st.revision,mode)?;
+            return Ok(json!({"subjectTool":"running locally"}));
+        }
+        if id == "layer.removeBackground" && self.services.browser_remove_background.is_some() {''')
+replace(source/'crates/ui-egui/src/menu_catalog.rs',
+    '    (&["Select"], "Remove Background", None, "layer.removeBackground"),',
+    '''    (&["Select"], "Select Subject (AI)", None, "select.subjectAI"),
+    (&["Select"], "Blur Background (AI)…", None, "layer.backgroundBlurAI"),
+    (&["Select"], "Replace Background (AI)…", None, "layer.replaceBackgroundAI"),
+    (&["Select"], "Remove Background", None, "layer.removeBackground"),''')
+print('Added shared Select Subject, Background Blur and Replace Background browser commands.')

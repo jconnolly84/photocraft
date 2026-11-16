@@ -108,6 +108,7 @@ jobs:
             exit
           fi
           cargo test -p photocraft-engine --lib cutout_cmds::tests
+          cargo test -p photocraft-engine --lib school_subject_tools_tests
           cargo test -p photocraft-ui-egui --lib browser_paste_menu_tests
           cargo test -p photocraft-ui-egui --lib school_toolbar_tests
           cargo test -p photocraft-ui-egui --lib school_start_tests

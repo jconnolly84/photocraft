@@ -7,7 +7,8 @@ use photocraft_codecs::{ChannelLayout, EncodeOptions, Image};
 use photocraft_doc::Document;
 use photocraft_ui_egui::PhotocraftApp;
 
-struct Outcome { document: u64, revision: u64, layer: u64, bounds: [i32; 4], result: Result<Vec<u8>, String> }
+struct SubjectResult { alpha: Vec<u8>, background: Option<Vec<u8>> }
+struct Outcome { document: u64, revision: u64, layer: u64, bounds: [i32; 4], mode: String, result: Result<SubjectResult, String> }
 thread_local! {
     static BUSY: Cell<bool> = const {Cell::new(false)};
     static DONE: RefCell<Vec<Outcome>> = const {RefCell::new(Vec::new())};
@@ -20,8 +21,14 @@ fn parent_function(name: &str) -> Result<(web_sys::Window, Function), String> {
     Ok((host, function))
 }
 pub fn start(doc: &Document, layer: u64, revision: u64) -> Result<(), String> {
-    if BUSY.with(Cell::get) {return Err("Background removal is already running. Use Cancel in the toolbar to stop it.".into());}
+    start_tool(doc,layer,revision,"remove")
+}
+pub fn start_tool(doc: &Document, layer: u64, revision: u64, mode: &str) -> Result<(), String> {
+    if BUSY.with(Cell::get) {return Err("Another AI tool is already running. Use Cancel to stop it.".into());}
+    if !matches!(mode,"remove"|"select"|"blur"|"replace") {return Err("Unknown AI tool".into());}
+    if matches!(mode,"blur"|"replace") && doc.bounds().size().area()>16_777_216 {return Err("AI backgrounds support canvases up to 16 megapixels. Resize the document first.".into());}
     let target = doc.layer(photocraft_doc::LayerId(layer)).ok_or("select an image layer")?;
+    if matches!(mode,"blur"|"replace") && target.clipped {return Err("Release this image's clipping mask before changing its background.".into());}
     let surface = target.surface().ok_or("The image is not rendered yet. Try again after it loads.")?;
     let area = surface.content_bounds().intersect(&doc.bounds());
     let count = u64::from(area.width()) * u64::from(area.height());
@@ -30,21 +37,32 @@ pub fn start(doc: &Document, layer: u64, revision: u64) -> Result<(), String> {
     surface.read_rgba8_into(area, &mut pixels);
     let image = Image::from_u8(area.width(), area.height(), ChannelLayout::Rgba, pixels.into_iter().flatten().collect()).map_err(|e| e.to_string())?;
     let png = photocraft_codecs::encode(&image, photocraft_codecs::Format::Png, &EncodeOptions::default()).map_err(|e| e.to_string())?;
-    let (host, function) = parent_function("photocraftRemoveBackground")?;
+    let (host, function) = parent_function(if mode=="remove" {"photocraftRemoveBackground"} else {"photocraftSubjectTool"})?;
     let object = Object::new();
     Reflect::set(&object, &JsValue::from_str("png"), &Uint8Array::from(png.as_slice())).map_err(error)?;
+    for (key,value) in [("canvasWidth",doc.bounds().width() as i32),("canvasHeight",doc.bounds().height() as i32),("left",area.x0),("top",area.y0)] {
+        Reflect::set(&object,&JsValue::from_str(key),&JsValue::from_f64(value as f64)).map_err(error)?;
+    }
+    Reflect::set(&object,&JsValue::from_str("mode"),&JsValue::from_str(mode)).map_err(error)?;
     let promise = js_sys::Promise::resolve(&function.call1(&host, &object).map_err(error)?);
     let document = doc.id.0;
     let bounds = [area.x0, area.y0, area.width() as i32, area.height() as i32];
+    let mode = mode.to_string();
     BUSY.with(|busy| busy.set(true));
     wasm_bindgen_futures::spawn_local(async move {
         let result = async {
             let value = JsFuture::from(promise).await.map_err(error)?;
-            let bytes: Uint8Array = value.dyn_into().map_err(|_| "Invalid model mask bytes")?;
+            let alpha = if mode=="remove" {value.clone()} else {Reflect::get(&value,&JsValue::from_str("alpha")).map_err(error)?};
+            let bytes: Uint8Array = alpha.dyn_into().map_err(|_| "Invalid model mask bytes")?;
             if u64::from(bytes.length()) != count {return Err("Model mask dimensions do not match the image".into());}
-            Ok(bytes.to_vec())
+            let background = if matches!(mode.as_str(),"blur"|"replace") {
+                let bytes: Uint8Array = Reflect::get(&value,&JsValue::from_str("background")).map_err(error)?.dyn_into().map_err(|_| "Invalid background pixels")?;
+                if bytes.length() as u64 > 16_777_216*4 {return Err("Background is too large".into());}
+                Some(bytes.to_vec())
+            }else{None};
+            Ok(SubjectResult {alpha:bytes.to_vec(),background})
         }.await;
-        DONE.with(|done| done.borrow_mut().push(Outcome {document, revision, layer, bounds, result}));
+        DONE.with(|done| done.borrow_mut().push(Outcome {document, revision, layer, bounds, mode, result}));
         BUSY.with(|busy| busy.set(false));
         // A completed promise can arrive between idle logic ticks. Wake a real
         // UI paint instead of waiting for another mouse or keyboard event.
@@ -57,10 +75,18 @@ pub fn start(doc: &Document, layer: u64, revision: u64) -> Result<(), String> {
 pub fn poll(app: &mut PhotocraftApp, ctx: &egui::Context) {
     WAKE.with(|wake| *wake.borrow_mut() = Some(ctx.clone()));
     for outcome in DONE.with(|done| std::mem::take(&mut *done.borrow_mut())) {
-        let result = outcome.result.and_then(|alpha| photocraft_engine::cutout_cmds::apply_model_mask(&mut app.session, outcome.document, outcome.revision, outcome.layer, outcome.bounds, alpha).map_err(|e| e.to_string()));
+        let mode = outcome.mode.as_str();
+        let result = outcome.result.and_then(|data| if mode=="remove" {
+            photocraft_engine::cutout_cmds::apply_model_mask(&mut app.session,outcome.document,outcome.revision,outcome.layer,outcome.bounds,data.alpha).map_err(|e| e.to_string())
+        }else{
+            photocraft_engine::cutout_cmds::apply_subject_tool(&mut app.session,outcome.document,outcome.revision,outcome.layer,outcome.bounds,mode,data.alpha,data.background).map_err(|e|e.to_string())
+        });
         let (message, success) = match result {
-            Ok(()) => ("Background removed locally. Undo restores the original.".to_string(), true),
-            Err(reason) => (format!("Background was not changed: {reason}"), false),
+            Ok(()) => (match mode {"select"=>"Subject selected locally. Use selection tools to refine it.",
+                "blur"=>"Background blurred. The original image is kept hidden underneath. Undo restores it.",
+                "replace"=>"Background replaced. Subject and background are separate layers. Undo restores the original.",
+                _=>"Background removed locally. Undo restores the original."}.to_string(), true),
+            Err(reason) => (format!("AI tool did not change the document: {reason}"), false),
         };
         app.ui.status = message.clone();
         app.ui.status_error = !success;

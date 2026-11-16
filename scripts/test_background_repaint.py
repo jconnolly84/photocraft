@@ -7,7 +7,8 @@ source = (root / 'custom-source/browser_background.rs').read_text(encoding='utf-
 poll = source[source.index('pub fn poll('):]
 header = r'''
 use std::cell::{Cell, RefCell};
-struct Outcome { document: u64, revision: u64, layer: u64, bounds: [i32;4], result: Result<Vec<u8>,String> }
+struct SubjectResult {alpha:Vec<u8>,background:Option<Vec<u8>>}
+struct Outcome { document: u64, revision: u64, layer: u64, bounds: [i32;4], mode:String, result: Result<SubjectResult,String> }
 thread_local! {
     static DONE: RefCell<Vec<Outcome>> = const {RefCell::new(Vec::new())};
     static BUSY: Cell<bool> = const {Cell::new(false)};
@@ -22,6 +23,7 @@ impl HostFunction {fn call1(&self,_:&(),_:&JsValue)->Result<(),()> {Ok(())}}
 fn parent_function(_: &str)->Result<((),HostFunction),()> {Err(())}
 mod photocraft_engine {pub mod cutout_cmds {
     pub fn apply_model_mask(s: &mut u64,_:u64,_:u64,_:u64,_:[i32;4],_:Vec<u8>)->Result<(),String> {*s+=1;Ok(())}
+    pub fn apply_subject_tool(s:&mut u64,_:u64,_:u64,_:u64,_:[i32;4],_:&str,_:Vec<u8>,_:Option<Vec<u8>>)->Result<(),String> {*s+=1;Ok(())}
 }}
 '''
 tests = r'''
@@ -36,14 +38,14 @@ tests = r'''
     #[test] fn completed_mask_repaints_without_input_or_busy_timer() {
         let ctx=idle(); let mut app=PhotocraftApp::default();
         BUSY.with(|b|b.set(false));
-        DONE.with(|d|d.borrow_mut().push(Outcome {document:1,revision:2,layer:3,bounds:[0,0,1,1],result:Ok(vec![255])}));
+        DONE.with(|d|d.borrow_mut().push(Outcome {document:1,revision:2,layer:3,bounds:[0,0,1,1],mode:"remove".into(),result:Ok(SubjectResult{alpha:vec![255],background:None})}));
         poll(&mut app,&ctx);
         assert_eq!(app.session,1,"apply the completed edit exactly once");
         assert!(ctx.has_requested_repaint(),"completed mask must request a visible paint even when the worker is no longer busy");
     }
     #[test] fn failed_or_cancelled_result_repaints_status_without_editing() {
         let ctx=idle(); let mut app=PhotocraftApp::default();
-        DONE.with(|d|d.borrow_mut().push(Outcome {document:1,revision:2,layer:3,bounds:[0,0,1,1],result:Err("cancelled".into())}));
+        DONE.with(|d|d.borrow_mut().push(Outcome {document:1,revision:2,layer:3,bounds:[0,0,1,1],mode:"remove".into(),result:Err("cancelled".into())}));
         poll(&mut app,&ctx);
         assert_eq!(app.session,0); assert!(app.ui.status_error);
         assert!(ctx.has_requested_repaint(),"error status must become visible without clicking a tool");
