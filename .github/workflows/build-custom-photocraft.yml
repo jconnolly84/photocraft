@@ -7,12 +7,17 @@ on:
         description: Run native menu and cutout regressions
         type: boolean
         default: true
+      toolbar_only:
+        description: Validate toolbar regressions without rebuilding the web package
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   build:
+    if: ${{ !inputs.toolbar_only }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
@@ -70,7 +75,7 @@ jobs:
           retention-days: 30
 
   regression:
-    if: ${{ inputs.run_regressions }}
+    if: ${{ inputs.run_regressions || inputs.toolbar_only }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -98,6 +103,10 @@ jobs:
       - name: Test actual menu and Smart Object background removal
         working-directory: upstream
         run: |
+          if [ '${{ inputs.toolbar_only }}' = 'true' ]; then
+            cargo test -p photocraft-ui-egui --lib school_toolbar_tests
+            exit
+          fi
           cargo test -p photocraft-engine --lib cutout_cmds::tests
           cargo test -p photocraft-ui-egui --lib browser_paste_menu_tests
           cargo test -p photocraft-ui-egui --lib school_toolbar_tests

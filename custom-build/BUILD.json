@@ -1,8 +1,8 @@
 {
   "upstream_version": "v0.23.1",
   "upstream_commit": "45066c48292e92229ada3459a83453439514c83d",
-  "workflow_run": "43754190543",
-  "archive_sha256": "530eea898569b81b9c83e4df0b63ffbaeada4f1e1443f69ebafcd777ff06bacf",
+  "workflow_run": "43955457656",
+  "archive_sha256": "e5c1d283ea20b35c3d57757490679887b9d68e8dfccda5bd19b9c3f27e98d7e5",
   "patch": "scripts/patch_photocraft_source.py",
   "patches": [
     "scripts/patch_photocraft_source.py",
@@ -26,8 +26,8 @@
     "ATTRIBUTION.md": "ef42af719a7282ff5b505039eeaae9ae5aeff45615b8b94131200656ba297c0a",
     "LICENSE-APACHE": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
     "app/photocraft-web.js": "9f2ed75701ba3444482536e1fd73beefbc2caa54280c95be70674512a6399761",
-    "app/photocraft-web-368b88928d493526.part-aa": "9d3c3fb5e1c0d4853d5e4e31bc6be83c03765a2950a92d535e72cc62adfa0189",
-    "app/parts.txt": "cd9c0965b268083f38b27938a14db8675298359bb4751839993bc927b657c674"
+    "app/parts.txt": "8c974b0fafd7d04a3a9edb282dccec87f7769cbd0b42ffbc55e83bdb9bda35b9",
+    "app/photocraft-web-7cb3c133a65d9dc7.part-aa": "c856789412025cb9dbe14fd51c6ef705dc544a2ad72b3ce8afc6888bd76aa826"
   },
   "features": [
     "font_categories",

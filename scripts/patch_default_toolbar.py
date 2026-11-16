@@ -163,9 +163,10 @@ mod school_toolbar_tests {
         let ctx = egui::Context::default();
         PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::ALL[0]);
         let frame = |app: &mut PhotocraftApp, time, events| {
-            ctx.run_ui(egui::RawInput {time: Some(time), events,
+            let mut out = ctx.run_ui(egui::RawInput {time: Some(time), events,
                 screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(1200.0,1800.0))),
-                ..Default::default()}, |ui| toolbar::toolbar(app, ui))
+                ..Default::default()}, |ui| toolbar::toolbar(app, ui));
+            out.textures_delta.clear();
         };
         frame(&mut app, 0.0, vec![]);
         frame(&mut app, 0.1, vec![]);

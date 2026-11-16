@@ -239,7 +239,7 @@ index 6084619..cb51ebb 100644
  mod web;
  
 diff --git a/apps/photocraft-web/src/web.rs b/apps/photocraft-web/src/web.rs
-index 5f6b71e..b7538cf 100644
+index 5f6b71e..bcbd9f6 100644
 --- a/apps/photocraft-web/src/web.rs
 +++ b/apps/photocraft-web/src/web.rs
 @@ -81,6 +81,7 @@ pub fn start() {
@@ -313,7 +313,7 @@ index 5f6b71e..b7538cf 100644
  }
  
  const PREFS_KEY: &str = "photocraft.preferences";
-@@ -679,3 +700,35 @@ fn screen_color_service() -> Option<photocraft_ui_egui::screen_picker::Service>
+@@ -679,3 +700,45 @@ fn screen_color_service() -> Option<photocraft_ui_egui::screen_picker::Service>
          Pending { receiver: rx, cancelled }
      }))
  }
@@ -346,7 +346,17 @@ index 5f6b71e..b7538cf 100644
 +            p.toolbar = Default::default();
 +            p.group_tools = groups;
 +        });
-+        if let Some(s) = storage {let _ = s.set_item(KEY, "true");}
++        if let Some(s) = storage.as_ref() {let _ = s.set_item(KEY, "true");}
++    }
++    // Repair the original compact preset without resetting any other choices.
++    const FLYOUT_KEY: &str = "photocraft.compact-flyouts.v1";
++    let enable_flyouts = storage.as_ref().and_then(|s| s.get_item(FLYOUT_KEY).ok())
++        .map(|v| v.is_none()).unwrap_or(false);
++    if enable_flyouts {
++        app.session.edit_prefs(|p| {
++            p.toolbar.enable_compact_flyouts();
++        });
++        if let Some(s) = storage.as_ref() {let _ = s.set_item(FLYOUT_KEY, "true");}
 +    }
 +}
 diff --git a/crates/engine/src/cmd/cutout_cmds.rs b/crates/engine/src/cmd/cutout_cmds.rs
@@ -467,10 +477,10 @@ index 9715192..f16f821 100644
 +    })
 +}
 diff --git a/crates/engine/src/prefs.rs b/crates/engine/src/prefs.rs
-index 6ad6fdd..866f57b 100644
+index 6ad6fdd..2e7b5a2 100644
 --- a/crates/engine/src/prefs.rs
 +++ b/crates/engine/src/prefs.rs
-@@ -1275,12 +1275,17 @@ impl MenuCustomization {
+@@ -1275,12 +1275,25 @@ impl MenuCustomization {
  }
  
  /// Edit › Toolbar: hidden tools and a custom order (tool names as in `ui.set {tool}`).
@@ -483,7 +493,15 @@ index 6ad6fdd..866f57b 100644
  }
 +impl Default for ToolbarCustomization {
 +    fn default() -> Self {
-+        Self {hidden: ["Artboard", "EllipseMarquee", "SingleRowMarquee", "SingleColumnMarquee", "Lasso", "PolygonLasso", "MagneticLasso", "PerspectiveCrop", "Eyedropper", "ColorSampler", "Ruler", "Note", "Count", "Brush", "Pencil", "MixerBrush", "ColorReplacement", "BackgroundEraser", "MagicEraser", "VerticalType", "HorizontalTypeMask", "VerticalTypeMask", "RotateView", "Remove", "Healing", "Patch", "ContentAwareMove", "RedEye", "CloneStamp", "PatternStamp", "HistoryBrush", "ArtHistoryBrush", "Sharpen", "Smudge", "Dodge", "Burn", "Sponge", "QuickSelection", "ObjectSelection", "FreeformPen", "CurvaturePen", "AddAnchorPoint", "DeleteAnchorPoint", "ConvertPoint", "DirectSelection", "EllipseShape", "Triangle", "Polygon", "Star", "Line", "CustomShape", "Slice", "SliceSelect", "Frame"].into_iter().map(str::to_string).collect(), order: Vec::new()}
++        Self {hidden: ["Lasso", "PolygonLasso", "MagneticLasso", "Eyedropper", "ColorSampler", "Ruler", "Note", "Count", "Brush", "Pencil", "MixerBrush", "ColorReplacement", "CloneStamp", "PatternStamp", "HistoryBrush", "ArtHistoryBrush", "Dodge", "Burn", "Sponge", "Frame"].into_iter().map(str::to_string).collect(), order: Vec::new()}
++    }
++}
++impl ToolbarCustomization {
++    /// Restore alternatives inside the classroom toolbar's existing slots.
++    /// Preserve independently hidden groups and custom ordering.
++    pub fn enable_compact_flyouts(&mut self) {
++        const ENABLED: &[&str] = &["Move", "Artboard", "RectMarquee", "EllipseMarquee", "SingleRowMarquee", "SingleColumnMarquee", "MagicWand", "ObjectSelection", "QuickSelection", "Crop", "PerspectiveCrop", "Slice", "SliceSelect", "SpotHealing", "Remove", "Healing", "Patch", "ContentAwareMove", "RedEye", "Eraser", "BackgroundEraser", "MagicEraser", "PaintBucket", "Gradient", "Blur", "Sharpen", "Smudge", "Type", "VerticalType", "VerticalTypeMask", "HorizontalTypeMask", "Pen", "FreeformPen", "CurvaturePen", "AddAnchorPoint", "DeleteAnchorPoint", "ConvertPoint", "PathSelection", "DirectSelection", "Rectangle", "EllipseShape", "Triangle", "Polygon", "Star", "Line", "CustomShape", "Hand", "RotateView", "Zoom"];
++        self.hidden.retain(|name| !ENABLED.contains(&name.as_str()));
 +    }
 +}
  
@@ -1116,10 +1134,10 @@ index e4bdc7a..62923fe 100644
          "select.selectAndMask" => app.session.is_enabled("select.refineEdge"),
          "type.editText" => app
 diff --git a/crates/ui-egui/src/panels.rs b/crates/ui-egui/src/panels.rs
-index 1f660fb..53be059 100644
+index 1f660fb..c669dce 100644
 --- a/crates/ui-egui/src/panels.rs
 +++ b/crates/ui-egui/src/panels.rs
-@@ -2188,3 +2188,25 @@ mod panel_state_migration_tests {
+@@ -2188,3 +2188,73 @@ mod panel_state_migration_tests {
          assert_eq!(PanelState::load(&ctx, new).map(|p| p.size().x), Some(290.0));
      }
  }
@@ -1138,17 +1156,74 @@ index 1f660fb..53be059 100644
 +            Tool::Blur, Tool::Type, Tool::Pen, Tool::PathSelection,
 +            Tool::Rectangle, Tool::Hand, Tool::Zoom]);
 +        assert_eq!(slots[6].as_slice(), &[Tool::PaintBucket, Tool::Gradient]);
-+        assert_eq!(prefs.hidden.len(), 54);
++        assert_eq!(prefs.hidden.len(), 20);
++        assert_eq!(slots[1].as_slice(), &[Tool::RectMarquee, Tool::EllipseMarquee,
++            Tool::SingleRowMarquee, Tool::SingleColumnMarquee]);
++        assert_eq!(slots[11].as_slice(), &[Tool::Rectangle, Tool::EllipseShape,
++            Tool::Triangle, Tool::Polygon, Tool::Star, Tool::Line, Tool::CustomShape]);
 +        assert!(!prefs.hidden.iter().any(|n| n == "Gradient"));
 +        assert!(prefs.hidden.iter().any(|n| n == "Frame"));
 +        let roundtrip: photocraft_engine::prefs::ToolbarCustomization = serde_json::from_str("{}").unwrap();
 +        assert_eq!(roundtrip, prefs);
 +    }
++    #[test]
++    fn existing_compact_prefs_gain_flyouts_without_resetting_other_choices() {
++        let mut prefs = photocraft_engine::prefs::ToolbarCustomization {
++            hidden: ["EllipseMarquee", "EllipseShape", "Sharpen", "VerticalType",
++                "DirectSelection", "Frame", "Brush"].into_iter().map(str::to_string).collect(),
++            order: vec!["Zoom".into(), "Move".into()],
++        };
++        prefs.enable_compact_flyouts();
++        assert_eq!(prefs.hidden, vec!["Frame", "Brush"]);
++        assert_eq!(prefs.order, vec!["Zoom", "Move"]);
++        let once = prefs.clone();
++        prefs.enable_compact_flyouts();
++        assert_eq!(prefs, once);
++        let sections = toolbar::visible_sections(&photocraft_engine::prefs::ToolbarCustomization::default().hidden);
++        for (_, slot) in sections.iter().flatten() {
++            assert!(slot.len() > 1 || slot == &vec![Tool::Zoom]);
++        }
++    }
++    #[test]
++    fn stationary_hold_opens_even_without_an_intermediate_held_frame() {
++        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
++        let ctx = egui::Context::default();
++        PhotocraftApp::setup_context(&ctx, crate::theme::ThemeKind::ALL[0]);
++        let frame = |app: &mut PhotocraftApp, time, events| {
++            let mut out = ctx.run_ui(egui::RawInput {time: Some(time), events,
++                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(1200.0,1800.0))),
++                ..Default::default()}, |ui| toolbar::toolbar(app, ui));
++            out.textures_delta.clear();
++        };
++        frame(&mut app, 0.0, vec![]);
++        frame(&mut app, 0.1, vec![]);
++        let bx = if Tokens::get(&ctx).pro {30.0} else {36.0};
++        let mut buttons: Vec<Rect> = ctx.viewport(|v| v.prev_pass.widgets.layers()
++            .flat_map(|(_,widgets)| widgets.iter())
++            .filter(|w| w.rect.size() == egui::Vec2::splat(bx) && w.sense.senses_click())
++            .map(|w| w.rect).collect());
++        buttons.sort_by(|a,b| a.top().total_cmp(&b.top()));
++        let at = buttons[1].center();
++        let pointer = |pressed| egui::Event::PointerButton {pos:at,
++            button:egui::PointerButton::Primary,pressed,modifiers:Default::default()};
++        frame(&mut app, 1.0, vec![egui::Event::PointerMoved(at), pointer(true)]);
++        frame(&mut app, 1.5, vec![pointer(false)]);
++        assert!(ctx.data(|d| d.get_temp::<(egui::Id,Rect)>(egui::Id::unique("tool-flyout"))).is_some());
++    }
 +}
 diff --git a/crates/ui-egui/src/panels/toolbar.rs b/crates/ui-egui/src/panels/toolbar.rs
-index a8ed212..86e5c39 100644
+index a8ed212..6084c3e 100644
 --- a/crates/ui-egui/src/panels/toolbar.rs
 +++ b/crates/ui-egui/src/panels/toolbar.rs
+@@ -23,7 +23,7 @@ pub(crate) const TOOL_SECTIONS: &[&[&[Tool]]] = &[
+     &[
+         &[Tool::RectMarquee, Tool::EllipseMarquee, Tool::SingleRowMarquee, Tool::SingleColumnMarquee],
+         &[Tool::Lasso, Tool::PolygonLasso, Tool::MagneticLasso],
+-        &[Tool::ObjectSelection, Tool::QuickSelection, Tool::MagicWand],
++        &[Tool::MagicWand, Tool::ObjectSelection, Tool::QuickSelection],
+         &[Tool::Crop, Tool::PerspectiveCrop, Tool::Slice, Tool::SliceSelect],
+         &[Tool::Frame],
+         &[Tool::Eyedropper, Tool::ColorSampler, Tool::Ruler, Tool::Note, Tool::Count],
 @@ -34,13 +34,13 @@ pub(crate) const TOOL_SECTIONS: &[&[&[Tool]]] = &[
          &[Tool::CloneStamp, Tool::PatternStamp],
          &[Tool::HistoryBrush, Tool::ArtHistoryBrush],
@@ -1165,6 +1240,31 @@ index a8ed212..86e5c39 100644
          &[Tool::PathSelection, Tool::DirectSelection],
          &[Tool::Rectangle, Tool::EllipseShape, Tool::Triangle, Tool::Polygon, Tool::Star, Tool::Line, Tool::CustomShape],
      ],
+@@ -329,7 +329,23 @@ pub fn toolbar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
+                                 {
+                                     ui.ctx().request_repaint_after(std::time::Duration::from_secs_f64(0.35 - seconds));
+                                 }
+-                                let long_press = held_for.is_some_and(|seconds| seconds >= 0.35);
++                                // A browser may coalesce the scheduled held frame with release.
++                                // Remember the original press independently of egui's current
++                                // down state so releasing a stationary hold still opens the list.
++                                let hold_start_id = key.with("hold-start");
++                                let now = ui.input(|i| i.time);
++                                if ui.input(|i| i.pointer.primary_pressed()
++                                    && i.pointer.press_origin().is_some_and(|p| resp.rect.contains(p))) {
++                                    ui.data_mut(|d| d.insert_temp(hold_start_id, now));
++                                }
++                                let held_release = ui.input(|i| i.pointer.primary_released()
++                                    && i.pointer.interact_pos().is_some_and(|p| resp.rect.contains(p)))
++                                    && ui.data(|d| d.get_temp::<f64>(hold_start_id))
++                                        .is_some_and(|start| now - start >= 0.35);
++                                if ui.input(|i| i.pointer.primary_released()) {
++                                    ui.data_mut(|d| d.remove::<f64>(hold_start_id));
++                                }
++                                let long_press = held_for.is_some_and(|seconds| seconds >= 0.35) || held_release;
+                                 let drag_open =
+                                     ui.input(|i| tool_flyout_drag_open(resp.rect, i.pointer.press_origin(), i.pointer.hover_pos(), i.pointer.primary_down()));
+                                 // Clicking the button of its open flyout again, with either button, closes
 diff --git a/crates/ui-egui/src/prefs/prefs_ui/dialogs.rs b/crates/ui-egui/src/prefs/prefs_ui/dialogs.rs
 index c2fecf6..83021d7 100644
 --- a/crates/ui-egui/src/prefs/prefs_ui/dialogs.rs
