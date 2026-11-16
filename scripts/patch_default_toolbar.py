@@ -99,7 +99,7 @@ fn initialize_default_toolbar(app: &mut PhotocraftApp) {
             p.toolbar = Default::default();
             p.group_tools = groups;
         });
-        if let Some(s) = storage {let _ = s.set_item(KEY, "true");}
+        if let Some(s) = storage.as_ref() {let _ = s.set_item(KEY, "true");}
     }
     // Repair the original compact preset without resetting any other choices.
     const FLYOUT_KEY: &str = "photocraft.compact-flyouts.v1";
@@ -109,7 +109,7 @@ fn initialize_default_toolbar(app: &mut PhotocraftApp) {
         app.session.edit_prefs(|p| {
             p.toolbar.enable_compact_flyouts();
         });
-        if let Some(s) = storage {let _ = s.set_item(FLYOUT_KEY, "true");}
+        if let Some(s) = storage.as_ref() {let _ = s.set_item(FLYOUT_KEY, "true");}
     }
 }
 ''')
