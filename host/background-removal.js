@@ -27,6 +27,7 @@
       const message={...data,id};
       if(data.png){message.png=new Uint8Array(data.png).buffer;transfer.push(message.png);}
       if(data.backdrop){message.backdrop=new Uint8Array(data.backdrop).buffer;transfer.push(message.backdrop);}
+      if(data.alpha){message.alpha=new Uint8Array(data.alpha).buffer;transfer.push(message.alpha);}
       worker.postMessage(message,transfer);
     });
   }
@@ -103,13 +104,62 @@
       render();dialog.showModal();
     });
   }
+  async function chooseFinish(own,source,mask) {
+    const dialog=get('image-finish-dialog'),preview=get('image-finish-preview'),edge=get('image-edge'),feather=get('image-feather'),strength=get('image-strength'),original=get('image-finish-original'),apply=get('image-finish-apply'),error=get('image-finish-error');
+    const refining=source.mode==='refine';
+    get('image-finish-title').textContent=refining?'Refine Cutout':'Auto Enhance';
+    get('image-finish-description').textContent=refining?'Adjust the cutout edge. Existing masks are reused; an unmasked image uses Select Subject first. This adjusts the mask, not the original pixels.':'Gently balance colour and contrast. This uses lightweight image processing, with no AI model download. A new layer keeps your original underneath.';
+    get('image-refine-fields').hidden=!refining;get('image-enhance-fields').hidden=refining;
+    edge.value='0';feather.value='1';strength.value='65';original.checked=false;error.textContent='';apply.disabled=false;
+    const image=await createImageBitmap(new Blob([source.png],{type:'image/png'}));
+    if(task!==own||own.cancelled){image.close();throw own.cancelled||'Image tool cancelled.';}
+    const scale=Math.min(480/image.width,360/image.height,1),w=Math.max(1,Math.round(image.width*scale)),h=Math.max(1,Math.round(image.height*scale));
+    preview.width=w;preview.height=h;
+    const make=(cw,ch)=>{const c=document.createElement('canvas');c.width=cw;c.height=ch;return c;};
+    const sampleScale=Math.min(1,1024/Math.max(image.width,image.height)),sample=make(Math.max(1,Math.round(image.width*sampleScale)),Math.max(1,Math.round(image.height*sampleScale))),sc=sample.getContext('2d',{willReadFrequently:true});
+    sc.drawImage(image,0,0,sample.width,sample.height);
+    const stats=refining?null:window.photocraftImageFinish.analyse(sc.getImageData(0,0,sample.width,sample.height).data);
+    const base=make(w,h),bc=base.getContext('2d',{willReadFrequently:true});bc.drawImage(image,0,0,w,h);const pixels=bc.getImageData(0,0,w,h);
+    let small;
+    if(mask){const full=make(mask.width,mask.height),fc=full.getContext('2d'),p=fc.createImageData(mask.width,mask.height),alpha=new Uint8Array(mask.alpha);
+      for(let i=0;i<alpha.length;i++){p.data[i*4]=p.data[i*4+1]=p.data[i*4+2]=alpha[i];p.data[i*4+3]=255;}
+      fc.putImageData(p,0,0);const reduced=make(w,h),rc=reduced.getContext('2d',{willReadFrequently:true});rc.drawImage(full,0,0,w,h);const data=rc.getImageData(0,0,w,h).data;small=new Uint8Array(w*h);for(let i=0;i<small.length;i++)small[i]=data[i*4];
+    }
+    let closed=false,scheduled=false;
+    const options=()=>({shift:Number(edge.value),feather:Number(feather.value),strength:Number(strength.value)});
+    const render=()=>{scheduled=false;if(closed)return;const o=options(),c=preview.getContext('2d'),out=c.createImageData(w,h);out.data.set(pixels.data);
+      get('image-edge-value').value=String(o.shift);get('image-feather-value').value=String(o.feather);get('image-strength-value').value=String(o.strength);
+      if(refining){const alpha=original.checked?small:window.photocraftImageFinish.refine(small,w,h,{shift:o.shift*scale,feather:o.feather*scale});for(let i=0;i<alpha.length;i++)out.data[i*4+3]=Math.round(out.data[i*4+3]*alpha[i]/255);}
+      else {
+        if(!original.checked)out.data.set(window.photocraftImageFinish.enhance(pixels.data,stats,o.strength));
+        if(small)for(let i=0;i<small.length;i++)out.data[i*4+3]=Math.round(out.data[i*4+3]*small[i]/255);
+      }
+      c.putImageData(out,0,0);
+    };
+    return new Promise((resolve,reject)=>{
+      const finish=(result,reason)=>{if(closed)return;closed=true;own.abort=null;image.close();for(const el of [edge,feather,strength,original])el.oninput=null;apply.onclick=null;get('image-finish-cancel').onclick=null;dialog.oncancel=null;if(dialog.open)dialog.close();reason?reject(reason):resolve(result);};
+      own.abort=reason=>finish(null,reason);
+      for(const el of [edge,feather,strength,original])el.oninput=()=>{if(!scheduled){scheduled=true;requestAnimationFrame(render);}};
+      apply.onclick=()=>finish(options());get('image-finish-cancel').onclick=()=>finish(null,'Image tool cancelled. The original was kept.');dialog.oncancel=e=>{e.preventDefault();finish(null,'Image tool cancelled. The original was kept.');};
+      render();dialog.showModal();
+    });
+  }
   async function run(source) {
     if(task)throw 'An AI tool is already running.';
     const mode=source.mode||'remove';
-    if(!['remove','select','blur','replace'].includes(mode))throw 'Unknown AI tool.';
+    if(!['remove','select','blur','replace','refine','enhance'].includes(mode))throw 'Unknown image tool.';
     if(!ArrayBuffer.isView(source.png)||source.png.byteLength>80*1024*1024)throw 'Image is too large for local background removal.';
-    const own={};task=own;cancel.hidden=false;show('Finding the subject on this PC...');
+    const own={};task=own;cancel.hidden=false;show(mode==='enhance'?'Preparing the enhancement preview...':'Preparing the cutout on this PC...');
     try {
+      if(mode==='enhance'||mode==='refine') {
+        const mask=source.mask?{alpha:source.mask,width:source.width,height:source.height}:mode==='enhance'?null:await request({type:'mask',png:source.png});
+        if(own.cancelled)throw own.cancelled;
+        const options=await chooseFinish(own,source,mask);if(own.cancelled)throw own.cancelled;
+        show('Finishing the image locally...');
+        const result=await request({type:'finish',png:source.png,mode,options,...(mask?{alpha:new Uint8Array(mask.alpha)}:{})});
+        const realm=frame.contentWindow.Uint8Array;
+        return{alpha:new realm(result.alpha||0),...(result.background?{background:new realm(result.background)}:{})};
+      }
       const mask=await request({type:'mask',png:source.png});
       if(own.cancelled)throw own.cancelled;
       const realm=frame.contentWindow.Uint8Array;

@@ -12,7 +12,7 @@ class Canvas {
 }
 class Tensor{dispose(){}}
 const scope={ArrayBuffer,Uint8Array,Uint8ClampedArray,Float32Array,Number,Math,Blob,OffscreenCanvas:Canvas,ort:{Tensor},
- photocraftSubjectBlur:require('../host/subject-blur.js'),
+ photocraftSubjectBlur:require('../host/subject-blur.js'),photocraftImageFinish:require('../host/image-finish.js'),
  createImageBitmap:async()=>({width:2,height:2,close(){}}),
  checksum:async bytes=>crypto.createHash('sha256').update(new Uint8Array(bytes)).digest('hex'),notify:()=>{},
  loadModel:async()=>{loads++;return{run:async()=>{inferences++;return{logits:{data:new Float32Array(512*512).fill(1),dispose(){}}};}};},
@@ -35,5 +35,10 @@ const scope={ArrayBuffer,Uint8Array,Uint8ClampedArray,Float32Array,Number,Math,B
  assert.equal(clean.hasBackground,true);
  for(let x=0;x<4;x++)assert.deepEqual([...clean.canvas.data.slice(x*4,x*4+4)],[10,20,30,255],'Subject red must not leak into the background');
  const noBackground=scope.photocraftSubjectBlur(image,4,1,2,new Uint8Array(4).fill(255),4,1,(w,h)=>new Canvas(w,h));assert.equal(noBackground.hasBackground,false);
+ const before=inferences;
+ await scope.self.onmessage({data:{type:'finish',id:7,png,mode:'enhance',options:{strength:65}}});assert.equal(posted.at(-1).type,'result');assert.equal(posted.at(-1).background.byteLength,16);assert.equal(inferences,before,'Enhancement must never use inference');
+ await scope.self.onmessage({data:{type:'finish',id:8,png,mode:'refine',alpha:new Uint8Array([255,128,64,0]).buffer,options:{shift:0,feather:0}}});assert.deepEqual([...new Uint8Array(posted.at(-1).alpha)],[255,128,64,0]);assert.equal(inferences,before,'Refining a supplied mask must never use inference');
+ await scope.self.onmessage({data:{type:'finish',id:9,png,mode:'refine',alpha:new Uint8Array(4).buffer,options:{shift:0,feather:0}}});assert.equal(posted.at(-1).type,'error');assert.match(posted.at(-1).message,/empty/);
+ await scope.self.onmessage({data:{type:'finish',id:10,png,mode:'enhance',options:{strength:101}}});assert.equal(posted.at(-1).type,'error');assert.match(posted.at(-1).message,/strength/);
  console.log('Worker mask content cache, invalidation, no-inference background changes, image budgets, settings validation and cover geometry passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -47,6 +47,15 @@
     #ai-effect-error { color: #ffba85; min-height: 1.3em; }
     .ai-effect-actions { display: flex; justify-content: flex-end; gap: 10px; }
     #ai-effect-apply { background: #0569d7; border-color: #429aff; padding: 7px 18px; }
+    #image-finish-dialog { width: min(620px,92vw); max-height: 90vh; overflow: auto; padding: 20px; background: #252525; color: #eee; border: 1px solid #777; border-radius: 10px; }
+    #image-finish-dialog::backdrop { background: #000a; }
+    #image-finish-dialog h2 { margin-top: 0; }
+    #image-finish-dialog label { display: block; margin: 12px 0; }
+    #image-finish-dialog [hidden] { display: none; }
+    #image-finish-dialog input[type=range] { width: min(340px,65vw); }
+    #image-finish-preview { display: block; max-width: 100%; margin: 14px auto; background: repeating-conic-gradient(#777 0 25%,#555 0 50%) 0/16px 16px; border: 1px solid #888; }
+    #image-finish-error { color: #ffba85; min-height: 1.3em; }
+    #image-finish-apply { background: #0569d7; border-color: #429aff; padding: 7px 18px; }
     #tutorial-dialog { width: min(1280px,96vw); height: 92vh; max-width: 96vw; max-height: 96vh; padding: 0; color: #f4f5f8; background: #11131b; border: 1px solid #626779; border-radius: 14px; }
     #tutorial-dialog[open] { display: flex; flex-direction: column; }
     #tutorial-dialog::backdrop { background: #080b16cc; }
@@ -66,6 +75,7 @@
   <script src="./fullscreen.js" defer></script>
   <script src="./image-paste.js" defer></script>
   <script src="./subject-blur.js" defer></script>
+  <script src="./image-finish.js" defer></script>
   <script src="./background-removal.js" defer></script>
 </head>
 <body>
@@ -120,6 +130,20 @@
     <button id="background-cancel" type="button" hidden>Cancel</button>
     <button id="background-dismiss" type="button">Dismiss</button>
   </aside>
+  <dialog id="image-finish-dialog" aria-labelledby="image-finish-title">
+    <h2 id="image-finish-title">Finish image</h2>
+    <p id="image-finish-description"></p>
+    <div id="image-refine-fields">
+      <label>Edge shift: <output id="image-edge-value">0</output> px (− inward, + outward)<br><input id="image-edge" type="range" min="-8" max="8" step="1" value="0"></label>
+      <label>Edge softness: <output id="image-feather-value">1</output> px<br><input id="image-feather" type="range" min="0" max="8" step="1" value="1"></label>
+    </div>
+    <div id="image-enhance-fields"><label>Enhancement strength: <output id="image-strength-value">65</output>%<br><input id="image-strength" type="range" min="0" max="100" step="1" value="65"></label></div>
+    <label><input id="image-finish-original" type="checkbox"> Show original for comparison</label>
+    <canvas id="image-finish-preview" width="480" height="270" aria-label="Image finishing preview"></canvas>
+    <p>The preview shows this layer only. Full-size processing happens on Apply. Files stay on this device.</p>
+    <p id="image-finish-error" role="status" aria-live="polite"></p>
+    <div class="ai-effect-actions"><button id="image-finish-cancel" type="button">Cancel</button><button id="image-finish-apply" type="button">Apply</button></div>
+  </dialog>
   <dialog id="ai-effect-dialog" aria-labelledby="ai-effect-title">
     <h2 id="ai-effect-title">AI background</h2>
     <p>The subject stays sharp on a masked layer. Your original image is kept hidden underneath.</p>

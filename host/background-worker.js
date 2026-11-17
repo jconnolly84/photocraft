@@ -1,6 +1,7 @@
 /* Local inference only. The worker fetches static model/runtime files, never images. */
 import * as ort from './ai/vendor/ort-1.31.1/ort.wasm.min.mjs';
 import './subject-blur.js?v=__SUBJECT_BLUR_VERSION__';
+import './image-finish.js?v=__IMAGE_FINISH_VERSION__';
 ort.env.wasm.numThreads = 1;
 ort.env.wasm.proxy = false;
 ort.env.wasm.wasmPaths = new URL('./ai/vendor/ort-1.31.1/', import.meta.url).href;
@@ -122,9 +123,29 @@ async function makeBackground({png,mode,options,canvasWidth,canvasHeight,backdro
     return {background:fc.getImageData(0,0,w,h).data.buffer,width:w,height:h};
   } finally {image.close();replacement?.close();}
 }
+async function finishImage({png,mode,options,alpha}) {
+  imageBytes(png);
+  const image=await createImageBitmap(new Blob([png],{type:'image/png'}));
+  try {
+    const {width:w,height:h}=image;dimensions(w,h);
+    if(mode==='refine') {
+      if(!(alpha instanceof ArrayBuffer)||alpha.byteLength!==w*h)throw Error('Invalid cutout mask');
+      const result=globalThis.photocraftImageFinish.refine(new Uint8Array(alpha),w,h,options);
+      if(!result.some(v=>v>0))throw Error('The refined cutout is empty. Reduce the inward edge shift.');
+      return{alpha:result.buffer,width:w,height:h};
+    }
+    if(mode!=='enhance')throw Error('Unknown image operation');
+    const scale=Math.min(1,1024/Math.max(w,h)),sample=new OffscreenCanvas(Math.max(1,Math.round(w*scale)),Math.max(1,Math.round(h*scale))),sc=sample.getContext('2d',{willReadFrequently:true});
+    sc.drawImage(image,0,0,sample.width,sample.height);
+    const stats=globalThis.photocraftImageFinish.analyse(sc.getImageData(0,0,sample.width,sample.height).data);
+    const canvas=new OffscreenCanvas(w,h),c=canvas.getContext('2d',{willReadFrequently:true});c.drawImage(image,0,0);
+    const pixels=c.getImageData(0,0,w,h).data;
+    return{background:globalThis.photocraftImageFinish.enhance(pixels,stats,options.strength).buffer,width:w,height:h};
+  } finally {image.close();}
+}
 self.onmessage=async ({data})=>{
   try {
-    const result=data.type==='effect'?await makeBackground(data):await inferMask(data.png);
+    const result=data.type==='finish'?await finishImage(data):data.type==='effect'?await makeBackground(data):await inferMask(data.png);
     const transfer=result.alpha?[result.alpha]:[result.background];
     self.postMessage({type:'result',id:data.id,...result},transfer);
   }catch(error){self.postMessage({type:'error',id:data.id,message:error.message||String(error)});}

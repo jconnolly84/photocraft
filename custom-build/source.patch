@@ -19,10 +19,10 @@ index 7054d67..76573ca 100644
  [target.'cfg(target_arch = "wasm32")'.dependencies]
 diff --git a/apps/photocraft-web/src/browser_background.rs b/apps/photocraft-web/src/browser_background.rs
 new file mode 100644
-index 0000000..8881b31
+index 0000000..83aaf71
 --- /dev/null
 +++ b/apps/photocraft-web/src/browser_background.rs
-@@ -0,0 +1,101 @@
+@@ -0,0 +1,111 @@
 +//! Async on-device model bridge. No image is uploaded; the host worker returns a mask.
 +use std::cell::{Cell, RefCell};
 +use js_sys::{Function, Object, Reflect, Uint8Array};
@@ -50,10 +50,10 @@ index 0000000..8881b31
 +}
 +pub fn start_tool(doc: &Document, layer: u64, revision: u64, mode: &str) -> Result<(), String> {
 +    if BUSY.with(Cell::get) {return Err("Another AI tool is already running. Use Cancel to stop it.".into());}
-+    if !matches!(mode,"remove"|"select"|"blur"|"replace") {return Err("Unknown AI tool".into());}
++    if !matches!(mode,"remove"|"select"|"blur"|"replace"|"refine"|"enhance") {return Err("Unknown image tool".into());}
 +    if matches!(mode,"blur"|"replace") && doc.bounds().size().area()>16_777_216 {return Err("AI backgrounds support canvases up to 16 megapixels. Resize the document first.".into());}
 +    let target = doc.layer(photocraft_doc::LayerId(layer)).ok_or("select an image layer")?;
-+    if matches!(mode,"blur"|"replace") && target.clipped {return Err("Release this image's clipping mask before changing its background.".into());}
++    if matches!(mode,"blur"|"replace"|"enhance") && target.clipped {return Err("Release this image's clipping mask before using this tool.".into());}
 +    let surface = target.surface().ok_or("The image is not rendered yet. Try again after it loads.")?;
 +    let area = surface.content_bounds().intersect(&doc.bounds());
 +    let count = u64::from(area.width()) * u64::from(area.height());
@@ -64,8 +64,16 @@ index 0000000..8881b31
 +    let png = photocraft_codecs::encode(&image, photocraft_codecs::Format::Png, &EncodeOptions::default()).map_err(|e| e.to_string())?;
 +    let (host, function) = parent_function(if mode=="remove" {"photocraftRemoveBackground"} else {"photocraftSubjectTool"})?;
 +    let object = Object::new();
++    if matches!(mode,"refine"|"enhance") {
++        if let Some(mask) = target.mask.as_ref().filter(|m| m.enabled) {
++            let mut values = Vec::new();
++            mask.values_into(area, &mut values);
++            let bytes:Vec<u8> = values.into_iter().map(|v|(v.clamp(0.0,1.0)*255.0).round() as u8).collect();
++            Reflect::set(&object,&JsValue::from_str("mask"),&Uint8Array::from(bytes.as_slice())).map_err(error)?;
++        }
++    }
 +    Reflect::set(&object, &JsValue::from_str("png"), &Uint8Array::from(png.as_slice())).map_err(error)?;
-+    for (key,value) in [("canvasWidth",doc.bounds().width() as i32),("canvasHeight",doc.bounds().height() as i32),("left",area.x0),("top",area.y0)] {
++    for (key,value) in [("width",area.width() as i32),("height",area.height() as i32),("canvasWidth",doc.bounds().width() as i32),("canvasHeight",doc.bounds().height() as i32),("left",area.x0),("top",area.y0)] {
 +        Reflect::set(&object,&JsValue::from_str(key),&JsValue::from_f64(value as f64)).map_err(error)?;
 +    }
 +    Reflect::set(&object,&JsValue::from_str("mode"),&JsValue::from_str(mode)).map_err(error)?;
@@ -79,8 +87,8 @@ index 0000000..8881b31
 +            let value = JsFuture::from(promise).await.map_err(error)?;
 +            let alpha = if mode=="remove" {value.clone()} else {Reflect::get(&value,&JsValue::from_str("alpha")).map_err(error)?};
 +            let bytes: Uint8Array = alpha.dyn_into().map_err(|_| "Invalid model mask bytes")?;
-+            if u64::from(bytes.length()) != count {return Err("Model mask dimensions do not match the image".into());}
-+            let background = if matches!(mode.as_str(),"blur"|"replace") {
++            if mode!="enhance" && u64::from(bytes.length()) != count {return Err("Model mask dimensions do not match the image".into());}
++            let background = if matches!(mode.as_str(),"blur"|"replace"|"enhance") {
 +                let bytes: Uint8Array = Reflect::get(&value,&JsValue::from_str("background")).map_err(error)?.dyn_into().map_err(|_| "Invalid background pixels")?;
 +                if bytes.length() as u64 > 16_777_216*4 {return Err("Background is too large".into());}
 +                Some(bytes.to_vec())
@@ -110,6 +118,8 @@ index 0000000..8881b31
 +            Ok(()) => (match mode {"select"=>"Subject selected locally. Use selection tools to refine it.",
 +                "blur"=>"Background blurred. The original image is kept hidden underneath. Undo restores it.",
 +                "replace"=>"Background replaced. Subject and background are separate layers. Undo restores the original.",
++                "refine"=>"Cutout refined. Original pixels are unchanged. Undo restores the previous mask.",
++                "enhance"=>"Image enhanced on a new layer. The original is hidden underneath. Undo restores it.",
 +                _=>"Background removed locally. Undo restores the original."}.to_string(), true),
 +            Err(reason) => (format!("AI tool did not change the document: {reason}"), false),
 +        };
@@ -387,7 +397,7 @@ index 5f6b71e..de0215e 100644
 +    }
 +}
 diff --git a/crates/engine/src/cmd/cutout_cmds.rs b/crates/engine/src/cmd/cutout_cmds.rs
-index 9715192..18ff428 100644
+index 9715192..a96297e 100644
 --- a/crates/engine/src/cmd/cutout_cmds.rs
 +++ b/crates/engine/src/cmd/cutout_cmds.rs
 @@ -21,7 +21,7 @@ const REFINE: RefineParams = RefineParams { radius: 2.0, smart_radius: true, smo
@@ -431,7 +441,7 @@ index 9715192..18ff428 100644
          id: CMD,
          label: "Remove Background",
          menu: &[],
-@@ -99,7 +109,17 @@ pub fn specs() -> Vec<CommandSpec> {
+@@ -99,7 +109,18 @@ pub fn specs() -> Vec<CommandSpec> {
          enabled,
          run,
          journal: true,
@@ -442,7 +452,8 @@ index 9715192..18ff428 100644
 +        params: specs[0].params, enabled, run, journal: true,
 +    });
 +    for (id,label) in [("select.subjectAI","Select Subject (AI)"),
-+        ("layer.backgroundBlurAI","Blur Background (AI)"),("layer.replaceBackgroundAI","Replace Background (AI)")] {
++        ("layer.backgroundBlurAI","Blur Background (AI)"),("layer.replaceBackgroundAI","Replace Background (AI)"),
++        ("layer.refineCutout","Refine Cutout"),("image.autoEnhanceLocal","Auto Enhance")] {
 +        specs.push(CommandSpec {id,label,menu:&[],shortcut:None,params:"{}",enabled,
 +            run: |_,_| Err(EngineError::Other("This AI tool requires the browser host".into())),journal:true});
 +    }
@@ -450,7 +461,7 @@ index 9715192..18ff428 100644
  }
  
  #[cfg(test)]
-@@ -244,6 +264,26 @@ mod tests {
+@@ -244,6 +265,26 @@ mod tests {
          assert!(layer(&s, id).mask.is_none());
      }
  
@@ -477,7 +488,7 @@ index 9715192..18ff428 100644
      #[test]
      fn remove_background_disabled_states_and_bad_params() {
          assert!(!Session::new().is_enabled(CMD));
-@@ -338,3 +378,157 @@ mod tests {
+@@ -338,3 +379,216 @@ mod tests {
          }
      }
  }
@@ -520,6 +531,9 @@ index 9715192..18ff428 100644
 +    let id = photocraft_doc::LayerId(layer);
 +    let source = st.doc.layer(id).ok_or(EngineError::NoLayer(id))?;
 +    check(&st.doc, source).map_err(EngineError::Other)?;
++    if matches!(mode,"refine"|"enhance") {
++        return apply_image_finish(s, document, revision, layer, bounds, mode, alpha, background);
++    }
 +    let label = match mode {"select" => "Select Subject (AI)", "blur" => "Blur Background (AI)",
 +        "replace" => "Replace Background (AI)", _ => return Err(EngineError::Other("Unknown AI tool".into()))};
 +    if mode != "select" && source.clipped {
@@ -594,6 +608,40 @@ index 9715192..18ff428 100644
 +    })
 +}
 +
++/// Refinement replaces the mask (allowing an outward shift); enhancement makes
++/// a raster copy while preserving the original Smart Object and its mask.
++fn apply_image_finish(s:&mut Session,document:u64,revision:u64,layer:u64,bounds:[i32;4],mode:&str,alpha:Vec<u8>,pixels:Option<Vec<u8>>)->Result<()> {
++    let st=s.active().ok_or(EngineError::NoDocument)?;
++    if st.doc.id.0!=document||st.revision!=revision{return Err(EngineError::Other("The document changed while the image tool was open. Try again.".into()));}
++    let id=photocraft_doc::LayerId(layer);let source=st.doc.layer(id).ok_or(EngineError::NoLayer(id))?;check(&st.doc,source).map_err(EngineError::Other)?;
++    let [x,y,w,h]=bounds;
++    if w<=0||h<=0||w as u64*h as u64>16_777_216{return Err(EngineError::Other("Invalid image dimensions".into()));}
++    let area=Rect::new(x,y,x.saturating_add(w),y.saturating_add(h));
++    if area.intersect(&st.doc.bounds())!=area{return Err(EngineError::Other("Image is outside the canvas".into()));}
++    let refining=mode=="refine";
++    if refining && (alpha.len() as u64!=w as u64*h as u64||!alpha.iter().any(|v|*v>0)) {return Err(EngineError::Other("The refined cutout is empty or invalid".into()));}
++    if !refining && (source.clipped||pixels.as_ref().is_none_or(|p|p.len() as u64!=w as u64*h as u64*4)){return Err(EngineError::Other("Invalid enhanced image or clipped layer".into()));}
++    s.edit(if refining {"Refine Cutout"}else{"Auto Enhance"},move|doc,active|{
++        if refining {
++            let mut mask=crate::commands::mask_at_depth(LayerMask::hide_all(),doc.depth)?;
++            let data:Vec<f32>=alpha.into_iter().map(|v|v as f32/255.0).collect();mask.surface.write_region(area,&data);
++            if let Some(previous)=doc.layer(id).and_then(|l|l.mask.as_ref()).filter(|m|m.enabled){mask.feather=previous.feather;}
++            crate::extra_cmds::background_to_layer_for_mask(doc,id);
++            doc.layer_mut(id).ok_or(EngineError::NoLayer(id))?.mask=Some(mask);
++        }else{
++            let original=doc.layer(id).ok_or(EngineError::NoLayer(id))?.clone();let mut enhanced=original.duplicate();
++            enhanced.name=format!("{} — Enhanced",original.name);enhanced.locks=Default::default();enhanced.visible=true;
++            let mut raster=Layer::raster("",doc.pixel_format());let surface=raster.surface_mut().unwrap();let channels=surface.channels();let format=doc.pixel_format();let bytes=pixels.as_ref().unwrap();let mut row=vec![0.0;w as usize*channels];
++            for yy in 0..h as usize {for (xx,p) in bytes[yy*w as usize*4..(yy+1)*w as usize*4].chunks_exact(4).enumerate(){
++                photocraft_raster::from_rgba_into(&format,[p[0] as f32/255.0,p[1] as f32/255.0,p[2] as f32/255.0,p[3] as f32/255.0],&mut row[xx*channels..(xx+1)*channels]);
++            }surface.write_region(Rect::new(x,y+yy as i32,x+w,y+yy as i32+1),&row);}
++            enhanced.content=raster.content;enhanced.psd_blocks.clear();enhanced.fill_cache=None;
++            doc.layer_mut(id).unwrap().visible=false;*active=Some(doc.insert_above(Some(id),enhanced));
++        }
++        Ok(())
++    })
++}
++
 +#[cfg(test)]
 +mod school_subject_tools_tests {
 +    use super::*;
@@ -634,6 +682,28 @@ index 9715192..18ff428 100644
 +        assert!(apply_subject_tool(&mut s,d,r,l,[0,0,1,1],"select",vec![0],None).is_err());
 +        assert_eq!(s.active().unwrap().doc.layers,before);
 +    }
++    #[test] fn refinement_can_expand_mask_without_rewriting_pixels_and_undo_restores_mask() {
++        let mut s=fixture();let(d,r,l)=args(&s);
++        apply_subject_tool(&mut s,d,r,l,[0,0,4,3],"refine",vec![128;12],None).unwrap();
++        let before=s.active().unwrap().doc.layers.clone();let(d,r,l)=args(&s);
++        apply_subject_tool(&mut s,d,r,l,[0,0,4,3],"refine",vec![255;12],None).unwrap();
++        assert_eq!(s.active().unwrap().doc.layers.len(),1);
++        assert_eq!(s.active().unwrap().doc.layers[0].mask.as_ref().unwrap().value(1,1),1.0);
++        assert_eq!(s.active().unwrap().doc.layers[0].content,before[0].content);
++        s.execute("edit.undo",json!({})).unwrap();assert_eq!(s.active().unwrap().doc.layers,before);
++    }
++    #[test] fn enhancement_preserves_source_mask_and_pixels_with_one_undo() {
++        let mut s=fixture();let(d,r,l)=args(&s);
++        apply_subject_tool(&mut s,d,r,l,[0,0,4,3],"refine",vec![128;12],None).unwrap();
++        let before=s.active().unwrap().doc.layers.clone();let(d,r,l)=args(&s);
++        apply_subject_tool(&mut s,d,r,l,[0,0,4,3],"enhance",vec![],Some([30,80,160,128].repeat(12))).unwrap();
++        let st=s.active().unwrap();assert_eq!(st.doc.layers.len(),2);assert!(!st.doc.layers[0].visible);
++        assert_eq!(st.doc.layers[1].mask,before[0].mask);
++        assert!((st.doc.layers[1].surface().unwrap().rgba(1,1)[0]-30.0/255.0).abs()<0.01);
++        s.execute("edit.undo",json!({})).unwrap();assert_eq!(s.active().unwrap().doc.layers,before);
++        let(d,r,l)=args(&s);assert!(apply_subject_tool(&mut s,d,r,l,[0,0,4,3],"enhance",vec![],Some(vec![0;4])).is_err());
++        assert_eq!(s.active().unwrap().doc.layers,before);
++    }
 +}
 diff --git a/crates/engine/src/prefs.rs b/crates/engine/src/prefs.rs
 index 6ad6fdd..2e7b5a2 100644
@@ -667,7 +737,7 @@ index 6ad6fdd..2e7b5a2 100644
  /// Layer Mask Display Options (double-click the layer mask's row in the Channels panel, or Mask
  /// Options… on its Layers thumbnail): the colour and opacity of the layer mask rubylith (`\`,
 diff --git a/crates/ui-egui/src/app/commands.rs b/crates/ui-egui/src/app/commands.rs
-index 1aa8111..83556b0 100644
+index 1aa8111..c7da3c5 100644
 --- a/crates/ui-egui/src/app/commands.rs
 +++ b/crates/ui-egui/src/app/commands.rs
 @@ -66,7 +66,7 @@ impl PhotocraftApp {
@@ -675,7 +745,7 @@ index 1aa8111..83556b0 100644
          // command that can run; a transform refused or still being applied keeps the box open and
          // the command doesn't run.
 -        if photocraft_engine::PRECHECKED.contains(&id) && self.ui.transform.is_some() {
-+        if (photocraft_engine::PRECHECKED.contains(&id) || matches!(id, "layer.removeBackground" | "layer.removeBackgroundQuick" | "select.subjectAI" | "layer.backgroundBlurAI" | "layer.replaceBackgroundAI")) && self.ui.transform.is_some() {
++        if (photocraft_engine::PRECHECKED.contains(&id) || matches!(id, "layer.removeBackground" | "layer.removeBackgroundQuick" | "select.subjectAI" | "layer.backgroundBlurAI" | "layer.replaceBackgroundAI" | "layer.refineCutout" | "image.autoEnhanceLocal")) && self.ui.transform.is_some() {
              // Bad params or a command that can't run leave the box as it is.
              self.session.precheck(id, &params).map_err(|e| e.to_string())?;
              transform_tool::commit(self);
@@ -683,11 +753,11 @@ index 1aa8111..83556b0 100644
                  return Err(if self.ui.status.is_empty() { tl!("The transform couldn't be applied.").into() } else { self.ui.status.clone() });
              }
          }
-+        if matches!(id,"select.subjectAI"|"layer.backgroundBlurAI"|"layer.replaceBackgroundAI") && self.services.browser_subject_tool.is_some() {
++        if matches!(id,"select.subjectAI"|"layer.backgroundBlurAI"|"layer.replaceBackgroundAI"|"layer.refineCutout"|"image.autoEnhanceLocal") && self.services.browser_subject_tool.is_some() {
 +            self.session.precheck(id,&params).map_err(|e|e.to_string())?;
 +            let st=self.session.active().ok_or("no document")?;
 +            let layer=st.active_layer.ok_or("select an image layer")?;
-+            let mode=match id {"select.subjectAI"=>"select","layer.backgroundBlurAI"=>"blur",_=>"replace"};
++            let mode=match id {"select.subjectAI"=>"select","layer.backgroundBlurAI"=>"blur","layer.refineCutout"=>"refine","image.autoEnhanceLocal"=>"enhance",_=>"replace"};
 +            self.services.browser_subject_tool.as_mut().unwrap()(&st.doc,layer.0,st.revision,mode)?;
 +            return Ok(json!({"subjectTool":"running locally"}));
 +        }
@@ -1194,16 +1264,18 @@ index f662842..ef58aae 100644
      };
      let presets: Vec<Card> = presets
 diff --git a/crates/ui-egui/src/menu_catalog.rs b/crates/ui-egui/src/menu_catalog.rs
-index d6db835..57c4adc 100644
+index d6db835..622ae1e 100644
 --- a/crates/ui-egui/src/menu_catalog.rs
 +++ b/crates/ui-egui/src/menu_catalog.rs
-@@ -547,6 +547,11 @@ pub static CATALOG: &[(&[&str], &str, Option<&str>, &str)] = &[
+@@ -547,6 +547,13 @@ pub static CATALOG: &[(&[&str], &str, Option<&str>, &str)] = &[
      (&["Select"], "---", None, "---"),
      (&["Select"], "Color Range…", None, "select.colorRange"),
      (&["Select"], "Focus Area…", None, "select.focusArea"),
 +    (&["Select"], "Select Subject (AI)", None, "select.subjectAI"),
 +    (&["Select"], "Blur Background (AI)…", None, "layer.backgroundBlurAI"),
 +    (&["Select"], "Replace Background (AI)…", None, "layer.replaceBackgroundAI"),
++    (&["Select"], "Refine Cutout…", None, "layer.refineCutout"),
++    (&["Image"], "Auto Enhance…", None, "image.autoEnhanceLocal"),
 +    (&["Select"], "Remove Background", None, "layer.removeBackground"),
 +    (&["Select"], "Remove Background (Quick)", None, "layer.removeBackgroundQuick"),
      (&["Select"], "Subject", None, "select.subject"),

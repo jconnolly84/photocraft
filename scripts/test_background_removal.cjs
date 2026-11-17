@@ -5,7 +5,7 @@ function element(id){return elements[id]??=( {value:id==='ai-bg-colour1'?'#143cf
  addEventListener(event,fn){callbacks[id+':'+event]=fn;},showModal(){this.open=true;},close(){this.open=false;},getContext:canvasContext});}
 const frame=element('editor');frame.contentWindow={Uint8Array};
 class Worker{constructor(url,options){this.url=url;this.options=options;this.sent=[];workers.push(this);}postMessage(data,transfer){this.sent.push({data,transfer});}terminate(){this.terminated=true;}}
-const host={photocraftSubjectBlur:require('../host/subject-blur.js')};vm.runInNewContext(fs.readFileSync('host/background-removal.js','utf8'),{
+const host={photocraftSubjectBlur:require('../host/subject-blur.js'),photocraftImageFinish:require('../host/image-finish.js')};vm.runInNewContext(fs.readFileSync('host/background-removal.js','utf8'),{
  document:{getElementById:element,createElement:()=>element('canvas-'+Math.random())},window:host,Worker,Uint8Array,Uint8ClampedArray,ArrayBuffer,URL,Blob,
  createImageBitmap:async()=>({width:2,height:2,close(){}}),requestAnimationFrame:fn=>fn(),location:{href:'https://school.github.io/photocraft/'},
 });
@@ -52,5 +52,21 @@ const tick=()=>new Promise(setImmediate),deadline=setTimeout(()=>{console.error(
  result=host.photocraftSubjectTool({...source,mode:'select'});worker=workers.at(-1);
  const current=worker.sent.at(-1).data.id;worker.onmessage({data:{type:'result',id:current-1,alpha:new Uint8Array(mask).buffer}});
  assert.equal(element('background-cancel').hidden,false,'Ignore stale worker replies');maskReply(worker);await result;
+ const requests=worker.sent.length;
+ result=host.photocraftSubjectTool({png:original,mode:'enhance'});await tick();
+ assert.equal(element('image-finish-dialog').open,true);assert.equal(worker.sent.length,requests,'Enhancement preview must not request a model or mask');
+ element('image-strength').value='45';element('image-strength').oninput();element('image-finish-original').checked=true;element('image-finish-original').oninput();
+ assert.equal(worker.sent.length,requests,'Preview and comparison must not start any worker operation');
+ element('image-finish-apply').onclick();await tick();assert.equal(worker.sent.at(-1).data.type,'finish');assert.equal(worker.sent.at(-1).data.options.strength,45);
+ reply(worker,{type:'result',background:new Uint8Array(16).buffer});output=await result;assert.equal(output.alpha.length,0);assert.equal(output.background.length,16);
+ const maskBefore=new Uint8Array(mask);const previous=worker.sent.length;
+ result=host.photocraftSubjectTool({png:original,mode:'refine',mask:maskBefore,width:2,height:2});await tick();
+ assert.equal(element('image-finish-dialog').open,true);assert.equal(worker.sent.length,previous,'Existing layer masks skip inference');
+ element('image-edge').value='-2';element('image-edge').oninput();element('image-finish-apply').onclick();await tick();
+ assert.equal(worker.sent.at(-1).data.mode,'refine');assert.equal(worker.sent.at(-1).data.options.shift,-2);assert.deepEqual([...new Uint8Array(worker.sent.at(-1).data.alpha)],mask);
+ reply(worker,{type:'result',alpha:new Uint8Array(mask).buffer});assert.deepEqual([...(await result).alpha],mask);assert.deepEqual([...maskBefore],mask);
+ result=host.photocraftSubjectTool({png:original,mode:'refine'});assert.equal(worker.sent.at(-1).data.type,'mask');maskReply(worker);await tick();
+ element('image-finish-cancel').onclick();await assert.rejects(result,r=>/cancelled/.test(r));assert.equal(element('image-finish-dialog').open,false);
+ result=host.photocraftSubjectTool({png:original,mode:'enhance'});await tick();callbacks['background-cancel:click']();await assert.rejects(result,r=>/cancelled/.test(r));assert.equal(element('image-finish-dialog').open,false);
  console.log('All AI modes: shared worker, original bytes, settings without inference, local images, cancellation races, stale replies and editor restart passed.');
 })().then(()=>clearTimeout(deadline)).catch(e=>{clearTimeout(deadline);console.error(e);process.exitCode=1;});
