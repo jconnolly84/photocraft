@@ -1,5 +1,6 @@
 /* Local inference only. The worker fetches static model/runtime files, never images. */
 import * as ort from './ai/vendor/ort-1.31.1/ort.wasm.min.mjs';
+import './subject-blur.js?v=__SUBJECT_BLUR_VERSION__';
 ort.env.wasm.numThreads = 1;
 ort.env.wasm.proxy = false;
 ort.env.wasm.wasmPaths = new URL('./ai/vendor/ort-1.31.1/', import.meta.url).href;
@@ -44,49 +45,87 @@ async function loadModel() {
   session = await ort.InferenceSession.create(data, {executionProviders: ['wasm'], graphOptimizationLevel: 'all'});
   return session;
 }
-self.onmessage = async event => {
+
+const MAX_PIXELS = 16777216;
+let maskCache;
+function dimensions(width,height) {
+  if (!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1||width*height>MAX_PIXELS) throw new Error('Resize the image or canvas below 16 megapixels first.');
+}
+function imageBytes(value) {
+  if (!(value instanceof ArrayBuffer)||value.byteLength<1||value.byteLength>80*1024*1024) throw new Error('Image exceeds the local processing limit');
+}
+function coverRect(iw,ih,w,h) {
+  const scale=Math.max(w/iw,h/ih);return [(w-iw*scale)/2,(h-ih*scale)/2,iw*scale,ih*scale];
+}
+async function inferMask(png) {
+  imageBytes(png);
+  const image=await createImageBitmap(new Blob([png],{type:'image/png'}));
   try {
-    const {png} = event.data;
-    if (!(png instanceof ArrayBuffer) || png.byteLength > 80 * 1024 * 1024) throw new Error('Image exceeds the local processing limit');
-    const model = await loadModel();
-    notify('Finding the subject locally. Processing time depends on this PC...');
-    const image = await createImageBitmap(new Blob([png], {type: 'image/png'}));
-    const {width, height} = image;
-    if (width * height > 16777216) {image.close(); throw new Error('Resize the image below 16 megapixels first.');}
-    const canvas = new OffscreenCanvas(512, 512);
-    const context = canvas.getContext('2d', {willReadFrequently: true});
-    context.fillStyle = '#ffffff'; context.fillRect(0, 0, 512, 512);
-    context.drawImage(image, 0, 0, 512, 512); image.close();
-    const rgba = context.getImageData(0, 0, 512, 512).data;
-    const count = 512 * 512;
-    const input = new Float32Array(count * 3);
-    const mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225];
-    for (let channel = 0; channel < 3; channel++) {
-      for (let pixel = 0; pixel < count; pixel++) input[channel * count + pixel] = (rgba[pixel * 4 + channel] / 255 - mean[channel]) / std[channel];
+    const {width,height}=image;dimensions(width,height);
+    const key=await checksum(png);
+    let small;
+    const cacheHit=maskCache?.key===key;
+    if(cacheHit) {small=maskCache.small;notify('Reusing the subject mask — no new AI run needed.');}
+    else {
+      const model=await loadModel();notify('Finding the subject locally. Processing time depends on this PC...');
+      const canvas=new OffscreenCanvas(512,512),context=canvas.getContext('2d',{willReadFrequently:true});
+      context.fillStyle='#ffffff';context.fillRect(0,0,512,512);context.drawImage(image,0,0,512,512);
+      const rgba=context.getImageData(0,0,512,512).data,count=512*512;
+      const input=new Float32Array(count*3),mean=[0.485,0.456,0.406],std=[0.229,0.224,0.225];
+      for(let c=0;c<3;c++)for(let i=0;i<count;i++)input[c*count+i]=(rgba[i*4+c]/255-mean[c])/std[c];
+      const tensor=new ort.Tensor('float32',input,[1,3,512,512]);let outputs;
+      try {
+        outputs=await model.run({input_image:tensor});const output=outputs.logits||outputs.output_image;
+        if(!output||output.data.length!==count)throw new Error('Unexpected model output');
+        small=new Uint8Array(count);for(let i=0;i<count;i++)small[i]=Math.round(255/(1+Math.exp(-output.data[i])));
+      } finally {tensor.dispose();if(outputs)for(const value of Object.values(outputs))value.dispose();}
+      // Only one 256 KB mask is retained. No image or full-resolution mask cache.
+      maskCache={key,small};
     }
-    const tensor = new ort.Tensor('float32', input, [1, 3, 512, 512]);
-    const outputs = await model.run({input_image: tensor});
-    const output = (outputs.logits || outputs.output_image);
-    if (!output || output.data.length !== count) throw new Error('Unexpected model output');
-    const maskPixels = context.createImageData(512, 512);
-    for (let pixel = 0; pixel < count; pixel++) {
-      const value = Math.round(255 / (1 + Math.exp(-output.data[pixel])));
-      maskPixels.data[pixel * 4] = value;
-      maskPixels.data[pixel * 4 + 1] = value;
-      maskPixels.data[pixel * 4 + 2] = value;
-      maskPixels.data[pixel * 4 + 3] = 255;
+    const canvas=new OffscreenCanvas(512,512),context=canvas.getContext('2d');
+    const pixels=context.createImageData(512,512);
+    for(let i=0;i<small.length;i++){pixels.data[i*4]=small[i];pixels.data[i*4+1]=small[i];pixels.data[i*4+2]=small[i];pixels.data[i*4+3]=255;}
+    context.putImageData(pixels,0,0);
+    const full=new OffscreenCanvas(width,height),fc=full.getContext('2d',{willReadFrequently:true});
+    fc.imageSmoothingEnabled=true;fc.imageSmoothingQuality='high';fc.drawImage(canvas,0,0,width,height);
+    const fullPixels=fc.getImageData(0,0,width,height).data,alpha=new Uint8Array(width*height);
+    for(let i=0;i<alpha.length;i++)alpha[i]=fullPixels[i*4];
+    return {alpha:alpha.buffer,width,height,cacheHit};
+  } finally {image.close();}
+}
+async function makeBackground({png,mode,options,canvasWidth,canvasHeight,backdrop}) {
+  imageBytes(png);
+  if(!['blur','replace'].includes(mode))throw new Error('Unknown background operation');
+  const image=await createImageBitmap(new Blob([png],{type:'image/png'}));let replacement;
+  try {
+    dimensions(image.width,image.height);
+    const w=mode==='blur'?image.width:canvasWidth,h=mode==='blur'?image.height:canvasHeight;dimensions(w,h);
+    const full=new OffscreenCanvas(w,h),fc=full.getContext('2d',{willReadFrequently:true});
+    if(mode==='blur') {
+      const radius=Number(options.radius);if(!Number.isFinite(radius)||radius<1||radius>80)throw new Error('Choose a blur from 1 to 80 pixels');
+      // Bound filter work to 2048 px, independently of the document resolution.
+      const scale=Math.min(1,2048/Math.max(w,h)),sw=Math.max(1,Math.round(w*scale)),sh=Math.max(1,Math.round(h*scale));
+      if(maskCache?.key!==await checksum(png))throw new Error('The subject mask expired. Please try again.');
+      const blurred=globalThis.photocraftSubjectBlur(image,sw,sh,radius*scale,maskCache.small,512,512,(w,h)=>new OffscreenCanvas(w,h));
+      if(!blurred.hasBackground)throw new Error('This image has no visible background to blur. Use Replace Background instead.');
+      fc.drawImage(blurred.canvas,0,0,w,h);
+    } else {
+      if(!['colour','gradient','image'].includes(options.type)||!/^#[0-9a-f]{6}$/i.test(options.colour1)||!/^#[0-9a-f]{6}$/i.test(options.colour2))throw new Error('Choose a valid background');
+      fc.fillStyle=options.colour1;
+      if(options.type==='gradient'){const g=fc.createLinearGradient(0,0,w,h);g.addColorStop(0,options.colour1);g.addColorStop(1,options.colour2);fc.fillStyle=g;}
+      fc.fillRect(0,0,w,h);
+      if(options.type==='image') {
+        imageBytes(backdrop);replacement=await createImageBitmap(new Blob([backdrop]));dimensions(replacement.width,replacement.height);
+        fc.drawImage(replacement,...coverRect(replacement.width,replacement.height,w,h));
+      }
     }
-    context.putImageData(maskPixels, 0, 0);
-    tensor.dispose(); for (const value of Object.values(outputs)) value.dispose();
-    const full = new OffscreenCanvas(width, height);
-    const fullContext = full.getContext('2d', {willReadFrequently: true});
-    fullContext.imageSmoothingEnabled = true; fullContext.imageSmoothingQuality = 'high';
-    fullContext.drawImage(canvas, 0, 0, width, height);
-    const fullPixels = fullContext.getImageData(0, 0, width, height).data;
-    const alpha = new Uint8Array(width * height);
-    for (let pixel = 0; pixel < alpha.length; pixel++) alpha[pixel] = fullPixels[pixel * 4];
-    self.postMessage({type: 'result', alpha: alpha.buffer}, [alpha.buffer]);
-  } catch (error) {
-    self.postMessage({type: 'error', message: error.message || String(error)});
-  }
+    return {background:fc.getImageData(0,0,w,h).data.buffer,width:w,height:h};
+  } finally {image.close();replacement?.close();}
+}
+self.onmessage=async ({data})=>{
+  try {
+    const result=data.type==='effect'?await makeBackground(data):await inferMask(data.png);
+    const transfer=result.alpha?[result.alpha]:[result.background];
+    self.postMessage({type:'result',id:data.id,...result},transfer);
+  }catch(error){self.postMessage({type:'error',id:data.id,message:error.message||String(error)});}
 };

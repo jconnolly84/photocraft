@@ -36,6 +36,17 @@
     #background-tools { position: fixed; bottom: 34px; left: 50%; transform: translateX(-50%); z-index: 30; max-width: calc(100vw - 40px); padding: 10px 12px; background: #252525; border: 1px solid #777; border-radius: 6px; box-shadow: 0 3px 15px #0008; }
     #background-tools[hidden] { display: none; }
     #background-tools p { margin: 0 0 8px; }
+    #ai-effect-dialog { width: min(620px,92vw); max-height: 90vh; overflow: auto; padding: 20px; background: #252525; color: #eee; border: 1px solid #777; border-radius: 10px; }
+    #ai-effect-dialog::backdrop { background: #000a; }
+    #ai-effect-dialog h2 { margin-top: 0; }
+    #ai-effect-dialog label { display: block; margin: 12px 0; }
+    #ai-effect-dialog [hidden] { display: none; }
+    #ai-effect-dialog select { padding: 5px; background: #383838; color: #eee; border: 1px solid #777; }
+    #ai-blur-radius { width: min(340px,65vw); vertical-align: middle; }
+    #ai-effect-preview { display: block; max-width: 100%; margin: 14px auto; background: repeating-conic-gradient(#555 0 25%,#444 0 50%) 0/16px 16px; border: 1px solid #666; }
+    #ai-effect-error { color: #ffba85; min-height: 1.3em; }
+    .ai-effect-actions { display: flex; justify-content: flex-end; gap: 10px; }
+    #ai-effect-apply { background: #0569d7; border-color: #429aff; padding: 7px 18px; }
     #tutorial-dialog { width: min(1280px,96vw); height: 92vh; max-width: 96vw; max-height: 96vh; padding: 0; color: #f4f5f8; background: #11131b; border: 1px solid #626779; border-radius: 14px; }
     #tutorial-dialog[open] { display: flex; flex-direction: column; }
     #tutorial-dialog::backdrop { background: #080b16cc; }
@@ -54,6 +65,7 @@
   <script src="./font-browser.js" defer></script>
   <script src="./fullscreen.js" defer></script>
   <script src="./image-paste.js" defer></script>
+  <script src="./subject-blur.js" defer></script>
   <script src="./background-removal.js" defer></script>
 </head>
 <body>
@@ -103,11 +115,26 @@
   <span id="fullscreen-status" role="status" aria-live="polite"></span>
   <button id="hide-toolbar" type="button" aria-controls="host-toolbar" aria-expanded="true">Hide tools</button>
   </nav>
-  <aside id="background-tools" aria-label="Background removal" hidden>
+  <aside id="background-tools" aria-label="AI subject tools" hidden>
     <p id="background-status" role="status" aria-live="polite"></p>
     <button id="background-cancel" type="button" hidden>Cancel</button>
     <button id="background-dismiss" type="button">Dismiss</button>
   </aside>
+  <dialog id="ai-effect-dialog" aria-labelledby="ai-effect-title">
+    <h2 id="ai-effect-title">AI background</h2>
+    <p>The subject stays sharp on a masked layer. Your original image is kept hidden underneath.</p>
+    <div id="ai-blur-fields"><label>Background blur: <output id="ai-blur-value">18</output> px<br><input id="ai-blur-radius" type="range" min="1" max="80" value="18"></label></div>
+    <div id="ai-replace-fields" hidden>
+      <label>Background <select id="ai-background-type"><option value="colour">Solid colour</option><option value="gradient">Gradient</option><option value="image">Image from this computer</option></select></label>
+      <label id="ai-colour1-label">Colour <input id="ai-bg-colour1" type="color" value="#143cff"></label>
+      <label id="ai-colour2-label" hidden>Second colour <input id="ai-bg-colour2" type="color" value="#d9ff43"></label>
+      <div id="ai-bg-file-fields" hidden><label>Choose a background image <input id="ai-bg-file" type="file" accept="image/png,image/jpeg,image/webp"></label><p id="ai-bg-file-status">Images fill the canvas and are cropped centrally to fit. Files stay on this device.</p></div>
+    </div>
+    <canvas id="ai-effect-preview" width="480" height="270" aria-label="Selected image and background preview"></canvas>
+    <p>Preview shows the selected image and its new background. Other document layers remain in the editor. Preview changes do not run the AI again.</p>
+    <p id="ai-effect-error" role="status" aria-live="polite"></p>
+    <div class="ai-effect-actions"><button id="ai-effect-cancel" type="button">Cancel</button><button id="ai-effect-apply" type="button">Apply</button></div>
+  </dialog>
   <iframe id="editor" title="PhotoCraft image editor"
     allow="fullscreen; clipboard-read; clipboard-write" allowfullscreen></iframe>
   <dialog id="tutorial-dialog" aria-labelledby="tutorial-title">

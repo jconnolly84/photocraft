@@ -1,51 +1,133 @@
-/* Only static model files are downloaded. Image and mask bytes stay in this tab. */
+/* On-device subject tools. Only static model/runtime files are fetched. */
 (() => {
-  const frame = document.getElementById('editor');
-  const panel = document.getElementById('background-tools');
-  const status = document.getElementById('background-status');
-  const cancel = document.getElementById('background-cancel');
-  let worker, pending;
-  const show = message => {
-    status.textContent = message;
-    // Keep progress and Cancel visible even when the main toolbar was hidden.
-    panel.hidden = false;
-  };
-  const reset = () => {pending = null; cancel.hidden = true;};
-  const stop = reason => {
-    worker?.terminate(); worker = null;
-    pending?.reject(reason); reset(); show(reason);
-  };
-  window.photocraftRemoveBackground = ({png}) => {
-    if (pending) return Promise.reject('Background removal is already running.');
-    if (!ArrayBuffer.isView(png) || png.byteLength > 80 * 1024 * 1024) return Promise.reject('Image is too large for local background removal.');
-    show('Starting AI background removal on this PC...'); cancel.hidden = false;
-    if (!worker) {
-      const script = new URL('./background-worker.js?v=__BACKGROUND_WORKER_VERSION__', location.href);
-      worker = new Worker(script, {type: 'module'});
-      worker.onmessage = ({data}) => {
-        if (data.type === 'progress') {show(data.message); return;}
-        if (!pending) return;
-        if (data.type === 'result') {
-          // The Rust module lives in the iframe's realm.
-          const bytes = new frame.contentWindow.Uint8Array(data.alpha);
-          pending.resolve(bytes); reset(); show('Mask calculated. Applying it to the source layer...');
-        } else if (data.type === 'error') {
-          pending.reject(data.message); reset(); show('AI removal failed: ' + data.message + '. Try Remove Background (Quick).');
-          worker.terminate(); worker = null;
-        }
+  const get=id=>document.getElementById(id),frame=get('editor'),panel=get('background-tools'),status=get('background-status'),cancel=get('background-cancel');
+  let worker,pending,task,sequence=0;
+  const show=message=>{status.textContent=message;panel.hidden=false;};
+  function stop(reason) {
+    worker?.terminate();worker=null;
+    if(task)task.cancelled=reason;
+    const request=pending;pending=null;request?.reject(reason);task?.abort?.(reason);
+    show(reason);
+  }
+  function request(data) {
+    if(!worker) {
+      const current=new Worker(new URL('./background-worker.js?v=__BACKGROUND_WORKER_VERSION__',location.href),{type:'module'});worker=current;
+      current.onmessage=({data})=>{
+        if(worker!==current||!task)return;
+        if(data.type==='progress'){show(data.message);return;}
+        if(!pending||data.id!==pending.id)return;
+        const active=pending;pending=null;
+        if(data.type==='result')active.resolve(data);
+        else if(data.type==='error'){active.reject(data.message);current.terminate();worker=null;}
       };
-      worker.onerror = () => stop('The AI worker stopped. Try Remove Background (Quick), or close other tabs and retry.');
+      current.onerror=()=>{if(worker===current)stop('The AI worker stopped. Close other tabs and retry, or use Remove Background (Quick).');};
     }
-    return new Promise((resolve, reject) => {
-      pending = {resolve, reject};
-      const bytes = new Uint8Array(png).buffer;
-      worker.postMessage({png: bytes}, [bytes]);
+    return new Promise((resolve,reject)=>{
+      const id=++sequence;pending={resolve,reject,id};const transfer=[];
+      const message={...data,id};
+      if(data.png){message.png=new Uint8Array(data.png).buffer;transfer.push(message.png);}
+      if(data.backdrop){message.backdrop=new Uint8Array(data.backdrop).buffer;transfer.push(message.backdrop);}
+      worker.postMessage(message,transfer);
     });
-  };
-  window.photocraftBackgroundComplete = show;
-  cancel.addEventListener('click', () => stop('Background removal cancelled. The original was kept.'));
-  document.getElementById('background-dismiss').addEventListener('click', () => {if (!pending) panel.hidden = true;});
-  frame.addEventListener('load', () => {
-    if (pending) stop('The editor restarted. The background-removal result was discarded.');
-  });
+  }
+  const cover=(iw,ih,w,h)=>{const s=Math.max(w/iw,h/ih);return[(w-iw*s)/2,(h-ih*s)/2,iw*s,ih*s];};
+  async function chooseEffect(own,source,mask) {
+    const dialog=get('ai-effect-dialog');if(!dialog)throw 'AI controls are unavailable. Reload after saving your work.';
+    const mode=source.mode,preview=get('ai-effect-preview'),radius=get('ai-blur-radius'),type=get('ai-background-type');
+    const colour1=get('ai-bg-colour1'),colour2=get('ai-bg-colour2'),file=get('ai-bg-file'),apply=get('ai-effect-apply'),error=get('ai-effect-error');
+    get('ai-effect-title').textContent=mode==='blur'?'Blur Background (AI)':'Replace Background (AI)';
+    get('ai-blur-fields').hidden=mode!=='blur';get('ai-replace-fields').hidden=mode!=='replace';
+    error.textContent='';file.value='';type.value='colour';radius.value='18';get('ai-blur-value').value='18';apply.disabled=false;
+    const image=await createImageBitmap(new Blob([source.png],{type:'image/png'}));
+    if(task!==own||own.cancelled){image.close();throw own.cancelled||'AI tool cancelled.';}
+    const w=mode==='blur'?mask.width:source.canvasWidth,h=mode==='blur'?mask.height:source.canvasHeight;
+    if(!Number.isInteger(w)||!Number.isInteger(h)||w<1||h<1||w*h>16777216){image.close();throw 'Resize the canvas below 16 megapixels first.';}
+    const scale=Math.min(480/w,360/h,1);preview.width=Math.max(1,Math.round(w*scale));preview.height=Math.max(1,Math.round(h*scale));
+    const left=mode==='blur'?0:source.left,top=mode==='blur'?0:source.top;
+    const sw=Math.max(1,Math.round(mask.width*scale)),sh=Math.max(1,Math.round(mask.height*scale));
+    const subject=document.createElement('canvas');subject.width=sw;subject.height=sh;const sc=subject.getContext('2d');
+    sc.drawImage(image,0,0,sw,sh);const matte=document.createElement('canvas');matte.width=sw;matte.height=sh;
+    const mc=matte.getContext('2d'),mp=mc.createImageData(sw,sh),alpha=new Uint8Array(mask.alpha);
+    for(let y=0;y<sh;y++)for(let x=0;x<sw;x++) {
+      const i=(y*sw+x)*4;mp.data[i]=mp.data[i+1]=mp.data[i+2]=255;
+      mp.data[i+3]=alpha[Math.min(mask.height-1,Math.floor(y*mask.height/sh))*mask.width+Math.min(mask.width-1,Math.floor(x*mask.width/sw))];
+    }
+    mc.putImageData(mp,0,0);sc.globalCompositeOperation='destination-in';sc.drawImage(matte,0,0);sc.globalCompositeOperation='source-over';
+    let replacement,backdrop,loading=false,closed=false,decodeGeneration=0,scheduled=false;
+    const options=()=>({radius:Number(radius.value),type:type.value,colour1:colour1.value,colour2:colour2.value});
+    const render=()=>{
+      scheduled=false;if(closed)return;const c=preview.getContext('2d'),o=options();c.clearRect(0,0,preview.width,preview.height);c.filter='none';
+      get('ai-blur-value').value=String(o.radius);
+      get('ai-colour2-label').hidden=o.type!=='gradient';get('ai-bg-file-fields').hidden=o.type!=='image';
+      apply.disabled=loading||(mode==='replace'&&o.type==='image'&&!backdrop);
+      if(mode==='blur') {
+        const blurred=window.photocraftSubjectBlur(image,preview.width,preview.height,o.radius*scale,alpha,mask.width,mask.height,(w,h)=>{
+          const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;return canvas;
+        });
+        c.drawImage(blurred.canvas,0,0);
+        if(!blurred.hasBackground){error.textContent='This image has no visible background to blur. Use Replace Background instead.';apply.disabled=true;}
+      }else{
+        c.fillStyle=o.colour1;
+        if(o.type==='gradient'){const g=c.createLinearGradient(0,0,preview.width,preview.height);g.addColorStop(0,o.colour1);g.addColorStop(1,o.colour2);c.fillStyle=g;}
+        c.fillRect(0,0,preview.width,preview.height);
+        if(o.type==='image'&&replacement)c.drawImage(replacement,...cover(replacement.width,replacement.height,preview.width,preview.height));
+      }
+      c.drawImage(subject,Math.round(left*scale),Math.round(top*scale));
+    };
+    const schedule=()=>{if(!scheduled){scheduled=true;requestAnimationFrame(render);}};
+    return new Promise((resolve,reject)=>{
+      const finish=(result,reason)=>{
+        if(closed)return;closed=true;decodeGeneration++;own.abort=null;image.close();replacement?.close();
+        for(const input of [radius,type,colour1,colour2])input.oninput=null;file.onchange=null;apply.onclick=null;
+        get('ai-effect-cancel').onclick=null;dialog.oncancel=null;if(dialog.open)dialog.close();
+        reason?reject(reason):resolve(result);
+      };
+      own.abort=reason=>finish(null,reason);
+      for(const input of [radius,type,colour1,colour2])input.oninput=schedule;
+      file.onchange=async()=>{
+        const generation=++decodeGeneration;backdrop=null;replacement?.close();replacement=null;error.textContent='';
+        const selected=file.files?.[0];if(!selected){loading=false;schedule();return;}
+        loading=true;schedule();
+        try {
+          if(selected.size>80*1024*1024)throw Error('Choose an image smaller than 80 MB.');
+          const bytes=await selected.arrayBuffer(),bitmap=await createImageBitmap(selected);
+          if(closed||generation!==decodeGeneration){bitmap.close();return;}
+          if(bitmap.width*bitmap.height>16777216){bitmap.close();throw Error('Resize the background image below 16 megapixels first.');}
+          backdrop=bytes;replacement=bitmap;get('ai-bg-file-status').textContent=selected.name+' — fills the canvas, cropped centrally to fit. File stays on this device.';
+        }catch(e){if(!closed&&generation===decodeGeneration)error.textContent=e.message||String(e);}
+        finally{if(!closed&&generation===decodeGeneration){loading=false;schedule();}}
+      };
+      apply.onclick=()=>{if(!apply.disabled)finish({options:options(),backdrop});};
+      get('ai-effect-cancel').onclick=()=>finish(null,'AI tool cancelled. The original was kept.');
+      dialog.oncancel=event=>{event.preventDefault();finish(null,'AI tool cancelled. The original was kept.');};
+      render();dialog.showModal();
+    });
+  }
+  async function run(source) {
+    if(task)throw 'An AI tool is already running.';
+    const mode=source.mode||'remove';
+    if(!['remove','select','blur','replace'].includes(mode))throw 'Unknown AI tool.';
+    if(!ArrayBuffer.isView(source.png)||source.png.byteLength>80*1024*1024)throw 'Image is too large for local background removal.';
+    const own={};task=own;cancel.hidden=false;show('Finding the subject on this PC...');
+    try {
+      const mask=await request({type:'mask',png:source.png});
+      if(own.cancelled)throw own.cancelled;
+      const realm=frame.contentWindow.Uint8Array;
+      if(mode==='remove'){show('Mask calculated. Applying it to the source layer...');return new realm(mask.alpha);}
+      if(mode==='select'){show('Mask calculated. Creating the selection...');return{alpha:new realm(mask.alpha)};}
+      const settings=await chooseEffect(own,source,mask);
+      if(own.cancelled)throw own.cancelled;
+      show('Preparing the background locally...');
+      const background=await request({type:'effect',png:source.png,mode,canvasWidth:source.canvasWidth,canvasHeight:source.canvasHeight,...settings});
+      show('Applying the subject and background as separate layers...');
+      return{alpha:new realm(mask.alpha),background:new realm(background.background)};
+    }catch(reason){show('AI tool: '+(reason.message||String(reason)));throw reason;}
+    finally{if(task===own){task=null;pending=null;cancel.hidden=true;}}
+  }
+  window.photocraftRemoveBackground=source=>run({...source,mode:'remove'});
+  window.photocraftSubjectTool=run;
+  window.photocraftBackgroundComplete=show;
+  cancel.addEventListener('click',()=>{if(task)stop('AI tool cancelled. The original was kept.');});
+  get('background-dismiss').addEventListener('click',()=>{if(!task)panel.hidden=true;});
+  frame.addEventListener('load',()=>{if(task)stop('The editor restarted. The AI result was discarded.');});
 })();

@@ -49,6 +49,7 @@ jobs:
           node scripts/test_font_file_import.cjs
           node scripts/test_image_paste.cjs
           node scripts/test_background_removal.cjs
+          node scripts/test_subject_worker.cjs
           node scripts/test_start_screen.cjs
           node scripts/test_tutorial_site.cjs --probe
       - name: Check local recovery transactions

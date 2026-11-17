@@ -47,6 +47,8 @@ if b'photocraftBrowserPaste' in wasm:
     features.extend(['browser_menu_paste', 'smart_object_background'])
 if b'photocraftRemoveBackground' in wasm:
     features.append('ai_background')
+if b'photocraftSubjectTool' in wasm:
+    features.append('ai_subject_tools')
 if b'photocraft.history-layers-default.v1' in wasm:
     features.append('history_layers_default')
 if b'photocraftStartAction' in wasm:
