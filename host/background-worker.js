@@ -3,11 +3,13 @@ import * as ort from './ai/vendor/ort-1.31.1/ort.wasm.min.mjs';
 import './subject-blur.js?v=__SUBJECT_BLUR_VERSION__';
 import './image-finish.js?v=__IMAGE_FINISH_VERSION__';
 import './upscale-core.js?v=__UPSCALE_CORE_VERSION__';
+import './inpaint-core.js?v=__INPAINT_CORE_VERSION__';
 ort.env.wasm.numThreads = 1;
 ort.env.wasm.proxy = false;
 ort.env.wasm.wasmPaths = new URL('./ai/vendor/ort-1.31.1/', import.meta.url).href;
 let session;
 let upscaleSession;
+let inpaintSession;
 const notify = message => self.postMessage({type: 'progress', message});
 const hex = bytes => Array.from(new Uint8Array(bytes), x => x.toString(16).padStart(2, '0')).join('');
 async function checksum(bytes) {return hex(await crypto.subtle.digest('SHA-256', bytes));}
@@ -170,9 +172,38 @@ async function upscaleImage({png,preview}) {
     return{background:result.pixels.buffer,width:result.width,height:result.height,left:result.left,top:result.top,sourceWidth:width,sourceHeight:height};
   }finally{image.close();}
 }
+async function removeObject({png,paint}) {
+  imageBytes(png);if(!(paint instanceof ArrayBuffer))throw Error('Invalid removal marks');
+  const image=await createImageBitmap(new Blob([png],{type:'image/png'}));
+  try {
+    const {width,height}=image;globalThis.photocraftInpaint.dimensions(width,height);
+    const canvas=new OffscreenCanvas(width,height),c=canvas.getContext('2d',{willReadFrequently:true});c.drawImage(image,0,0);
+    const original=c.getImageData(0,0,width,height).data,marks=new Uint8Array(paint);
+    const prepared=globalThis.photocraftInpaint.inputs(original,marks,width,height),r=prepared.region;
+    if(!inpaintSession){
+      const url=new URL('./ai/models/migan-512-406830d/model.onnx',import.meta.url);
+      const cache=globalThis.caches?await caches.open('photocraft-inpaint-v1').catch(()=>null):null;
+      let response=await cache?.match(url);const stored=Boolean(response);if(!response)response=await fetch(url);if(!response.ok)throw Error('The object-removal model could not download. Try again online.');
+      const chunks=[];let received=0,last=-1;const reader=response.body.getReader();
+      while(true){const {done,value}=await reader.read();if(done)break;received+=value.length;if(received>28079181)throw Error('Unexpected object-removal model size');chunks.push(value);const percent=Math.round(received/28079181*100);if(percent!==last){last=percent;notify(`Loading object-removal model: ${percent}% (first use downloads 28 MB)`);}}
+      const bytes=new Uint8Array(received);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
+      if(received!==28079181||await checksum(bytes)!=='6f1f3530a1a2324b19752018ce756088b07973cda8d7d890034ace5c8a48c40b'){await cache?.delete(url);throw Error('Object-removal model checksum failed. Please retry.');}
+      if(!stored)await cache?.put(url,new Response(bytes)).catch(()=>{});
+      notify('Preparing object removal on this device...');inpaintSession=await ort.InferenceSession.create(bytes,{executionProviders:['wasm'],graphOptimizationLevel:'all'});
+    }
+    notify('Filling the marked region locally. Processing time depends on this device...');
+    const input=new ort.Tensor('uint8',prepared.image,[1,3,r.height,r.width]),mask=new ort.Tensor('uint8',prepared.keep,[1,1,r.height,r.width]);let output;
+    try {
+      output=await inpaintSession.run({image:input,mask});const value=output.result;
+      if(!value||value.type!=='uint8'||value.dims.join(',')!==`1,3,${r.height},${r.width}`)throw Error('Unexpected object-removal model output');
+      const result=globalThis.photocraftInpaint.composite(original,marks,width,height,r,value.data);
+      return{background:result.buffer,width,height};
+    }finally{input.dispose();mask.dispose();if(output)for(const value of Object.values(output))value.dispose();}
+  }finally{image.close();}
+}
 self.onmessage=async ({data})=>{
   try {
-    const result=data.type==='upscale'?await upscaleImage(data):data.type==='finish'?await finishImage(data):data.type==='effect'?await makeBackground(data):await inferMask(data.png);
+    const result=data.type==='inpaint'?await removeObject(data):data.type==='upscale'?await upscaleImage(data):data.type==='finish'?await finishImage(data):data.type==='effect'?await makeBackground(data):await inferMask(data.png);
     const transfer=result.alpha?[result.alpha]:[result.background];
     self.postMessage({type:'result',id:data.id,...result},transfer);
   }catch(error){self.postMessage({type:'error',id:data.id,message:error.message||String(error)});}

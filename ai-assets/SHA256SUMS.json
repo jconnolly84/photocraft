@@ -1,5 +1,5 @@
 {
-  "ATTRIBUTION.md": "c503b4666348d406590cd6144bf6e21039a3c456ce25be9647eef588d48c7637",
+  "ATTRIBUTION.md": "176ffb619fdb9781eacdd3e05fb2119326aba52ca86e47bd45334d462155fed0",
   "models/birefnet-lite-512-962e679/config.json": "561965f7aa366c48b95ab1c24220d59a718df4025c2ecb359dd5736ceb49e912",
   "models/birefnet-lite-512-962e679/LICENSE": "b5cd5faac84a0acb8a6bdb8aeef0919e528891be27216df84eab398d7c8bd2aa",
   "models/birefnet-lite-512-962e679/manifest.json": "2b3e05c394b5fe48ecb1ff484ac96c50cf01f66f35cbd46506528bdb812bbdbb",
@@ -8,6 +8,11 @@
   "models/birefnet-lite-512-962e679/model.part-03.bin": "bbdefefea3c7d86011d3ae21aa13ed27153c62271636d74adbb753108855ad3a",
   "models/birefnet-lite-512-962e679/preprocessor_config.json": "a79663b311d8404dfb329f7b45bc9f970a0c155aeedae8ac15b6b77d76789613",
   "models/birefnet-lite-512-962e679/README.md": "8e4338e9e368804ae5b6fc5b7e634e405f84c7879c405f738904f47b368399cf",
+  "models/migan-512-406830d/LICENSE": "13348eaaebc0b07b0faf3a92db04e0858737713a917d064b599c87cac05b571f",
+  "models/migan-512-406830d/LICENSE-WEIGHTS": "674e33456b8d03693b84ab305aa7372d93c91e68b234651b0adad106d518e6eb",
+  "models/migan-512-406830d/manifest.json": "5d3c5fb7eb4d9f7c1db3e66054d7175c55e81142c24a2052ba37e0f1c1093eac",
+  "models/migan-512-406830d/model.onnx": "6f1f3530a1a2324b19752018ce756088b07973cda8d7d890034ace5c8a48c40b",
+  "models/migan-512-406830d/README.md": "d80514b4aa4a97a8339ffcd5efd7b24600b73cef43bd461a369f294905dae42a",
   "models/quicksrnet-small-2x/LICENSE": "3d7f7841688ba4c69892be4df5dd7a2c114d3ac8b2113953a6e3a35d7f86c657",
   "models/quicksrnet-small-2x/manifest.json": "da6812074eeebe4e0b2515244a0a9b4b0c0f9a9f5443bf0df74d551e14da71e7",
   "models/quicksrnet-small-2x/model-source.py": "d79642c3d2580631f11e027ce3817d34551ce154d789812cf04aa0d4a5ccc189",

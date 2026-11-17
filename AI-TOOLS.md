@@ -1,5 +1,43 @@
 # Local AI subject tools
 
+## Remove Object (AI)
+
+Select the image layer and choose **Image → Remove Object (AI)…**. Brush pink
+over one unwanted object, including its outline and shadow. Adjust Brush size,
+use Erase marks, Undo last mark or Clear marks as needed. **Preview removal**
+fills the marked area. Toggle **Show original** to compare, then choose
+**Apply removal**. Apply keeps the exact preview result; it does not run the
+model a second time. Painting or undoing marks invalidates the old result and
+requires another preview. The editor changes only after Apply.
+
+The result is a new raster layer with the original hidden underneath. Existing
+masks, opacity and blending settings are retained. One Undo restores the
+original. Every unmarked source RGBA byte and all source alpha bytes are kept;
+the model's own blending outside the marks is excluded. Preview shows the
+selected layer only, rather than the other layers in the advert.
+
+Use small areas with surrounding background. The input limit is 4,194,304
+pixels and 4096 pixels per side, with at least 8 pixels on each side. Mark at
+most 40% of the image in one pass; the marked bounding box may span at most
+768 pixels per side. A padded crop no larger than 1024 pixels per side bounds
+the model's preprocessing and output work. Its network works internally at
+512 × 512. Large objects, complex structures, faces and repeated patterns may
+need manual touch-up; generated pixels cannot reproduce exact hidden detail.
+
+The author-published MI-GAN model is 28,079,181 bytes (about 28 MB), MIT licensed,
+and verified against its published LFS SHA-256. It downloads only on the first
+Preview removal, not when opening the app or the brush dialog. Public model
+files are cached locally. The existing worker and ONNX runtime are reused.
+Cancel closes the dialog, terminates any running model worker and discards the
+result. Nothing is applied on cancellation or a changed document. No image,
+brush mask or generated result is uploaded to an inference service.
+
+Tests: `node scripts/test_inpaint.cjs`, `node scripts/test_object_removal.cjs`,
+`python scripts/test_inpaint_model.py`, plus the native object-removal Undo and
+stale-result regression in `school_subject_tools_tests`.
+
+## Subject and background tools
+
 Select a raster image or placed Smart Object, then use the **Select** menu:
 
 - **Select Subject (AI)** creates a normal editable selection. It changes no image layers.

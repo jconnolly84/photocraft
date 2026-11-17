@@ -19,6 +19,14 @@
   Checkpoint, model and source revisions/hashes are recorded in
   models/quicksrnet-small-2x/provenance.json and manifest.json. Its original
   licence, notices and model source remain beside the exported weights.
+- MI-GAN 512 Places2 pipeline: Picsart AI Research (PAIR), MIT licence for code
+  and released weights. Official project: https://github.com/Picsart-AI-Research/MI-GAN
+  Author-published ONNX pipeline: https://huggingface.co/andraniksargsyan/migan
+  Pinned revision: 406830d0fa60666da0071c342ad2fbc8f30c5c64.
+  The exact ONNX bytes are preserved, verified against the publisher's LFS
+  SHA-256 6f1f3530a1a2324b19752018ce756088b07973cda8d7d890034ace5c8a48c40b.
+  Its original model card, MIT licence and explicit LICENSE-WEIGHTS remain in
+  models/migan-512-406830d/.
 
 The model and runtime load on demand. Only these static files are fetched.
 Student images and generated masks stay in the browser. Model caches contain

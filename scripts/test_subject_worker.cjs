@@ -12,7 +12,8 @@ class Canvas {
 }
 class Tensor{dispose(){}}
 const scope={ArrayBuffer,Uint8Array,Uint8ClampedArray,Float32Array,Number,Math,Blob,OffscreenCanvas:Canvas,ort:{Tensor},
- photocraftSubjectBlur:require('../host/subject-blur.js'),photocraftImageFinish:require('../host/image-finish.js'),photocraftUpscale:require('../host/upscale-core.js'),
+ photocraftSubjectBlur:require('../host/subject-blur.js'),photocraftImageFinish:require('../host/image-finish.js'),photocraftUpscale:require('../host/upscale-core.js'),photocraftInpaint:require('../host/inpaint-core.js'),
+ inpaintSession:{run:async()=>({result:{data:new Uint8Array(3*100*80).fill(80),type:'uint8',dims:[1,3,80,100],dispose(){}}})},
  upscaleSession:{run:async()=>({upscaled:{data:new Float32Array(3*256*256).fill(0.5),dims:[1,3,256,256],dispose(){}}})},
  createImageBitmap:async()=>({width:2,height:2,close(){}}),
  checksum:async bytes=>crypto.createHash('sha256').update(new Uint8Array(bytes)).digest('hex'),notify:()=>{},
@@ -43,5 +44,8 @@ const scope={ArrayBuffer,Uint8Array,Uint8ClampedArray,Float32Array,Number,Math,B
  await scope.self.onmessage({data:{type:'finish',id:10,png,mode:'enhance',options:{strength:101}}});assert.equal(posted.at(-1).type,'error');assert.match(posted.at(-1).message,/strength/);
  await scope.self.onmessage({data:{type:'upscale',id:11,png,preview:true}});result=posted.at(-1);assert.equal(result.type,'result');assert.equal(result.width,4);assert.equal(result.height,4);assert.equal(result.background.byteLength,64);assert.equal(inferences,before,'Upscaling must not run background segmentation');assert.equal(result.sourceWidth,2);
  await scope.self.onmessage({data:{type:'upscale',id:12,png,preview:false}});assert.equal(posted.at(-1).type,'result');assert.equal(posted.at(-1).background.byteLength,64);
+ scope.createImageBitmap=async()=>({width:100,height:80,close(){}});const paint=new Uint8Array(8000);for(let y=30;y<40;y++)for(let x=40;x<50;x++)paint[y*100+x]=255;
+ await scope.self.onmessage({data:{type:'inpaint',id:13,png,paint:paint.buffer}});result=posted.at(-1);assert.equal(result.type,'result');assert.equal(result.background.byteLength,32000);let pixels=new Uint8Array(result.background);assert.deepEqual([...pixels.slice(0,4)],[255,255,255,255]);assert.deepEqual([...pixels.slice((35*100+45)*4,(35*100+45)*4+4)],[80,80,80,255]);assert.equal(inferences,before,'Object removal uses its own model, not subject segmentation');
+ await scope.self.onmessage({data:{type:'inpaint',id:14,png,paint:new Uint8Array(8000).buffer}});assert.equal(posted.at(-1).type,'error');assert.match(posted.at(-1).message,/Brush/);
  console.log('Worker mask content cache, invalidation, no-inference background changes, image budgets, settings validation and cover geometry passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

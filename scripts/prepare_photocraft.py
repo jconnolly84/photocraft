@@ -78,6 +78,9 @@ background_host = site / 'background-removal.js'
 blur_helper = site / 'subject-blur.js'
 finish_helper = site / 'image-finish.js'
 upscale_helper = site / 'upscale-core.js'
+inpaint_helper = site / 'inpaint-core.js'
+if worker.is_file() and inpaint_helper.is_file():
+    worker.write_text(worker.read_text(encoding='utf-8').replace('__INPAINT_CORE_VERSION__',hashlib.sha256(inpaint_helper.read_bytes()).hexdigest()[:12]),encoding='utf-8')
 if worker.is_file() and upscale_helper.is_file():
     worker.write_text(worker.read_text(encoding='utf-8').replace('__UPSCALE_CORE_VERSION__',hashlib.sha256(upscale_helper.read_bytes()).hexdigest()[:12]),encoding='utf-8')
 if worker.is_file() and finish_helper.is_file():

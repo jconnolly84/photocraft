@@ -54,6 +54,19 @@
     #upscale-preview { display: block; max-width: 100%; margin: 14px auto; background: repeating-conic-gradient(#777 0 25%,#555 0 50%) 0/16px 16px; border: 1px solid #888; }
     #upscale-view { color: #d9ff43; font-weight: 600; }
     #upscale-apply { background: #0569d7; border-color: #429aff; padding: 7px 18px; }
+    #object-dialog { width: min(960px,94vw); max-height: 94vh; overflow: auto; padding: 18px; background: #252525; color: #eee; border: 1px solid #777; border-radius: 10px; }
+    #object-dialog::backdrop { background: #000a; }
+    #object-dialog h2 { margin: 0 0 8px; }
+    #object-dialog p { margin: 8px 0; }
+    .object-tools { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 12px 0; }
+    .object-tools label { white-space: nowrap; }
+    #object-brush { width: 140px; vertical-align: middle; }
+    #object-view { color: #ff9fc3; font-weight: 600; min-height: 1.3em; }
+    #object-canvas { display: block; max-width: 100%; margin: 10px auto; background: repeating-conic-gradient(#777 0 25%,#555 0 50%) 0/16px 16px; border: 1px solid #888; cursor: crosshair; touch-action: none; }
+    #object-error { color: #ffba85; min-height: 1.3em; }
+    #object-error:empty { display: none; }
+    .object-actions { position: sticky; bottom: -18px; padding: 10px 0; background: #252525; border-top: 1px solid #555; }
+    #object-apply { background: #0569d7; border-color: #429aff; padding: 7px 18px; }
     #image-finish-dialog::backdrop { background: #000a; }
     #image-finish-dialog h2 { margin-top: 0; }
     #image-finish-dialog label { display: block; margin: 12px 0; }
@@ -83,6 +96,8 @@
   <script src="./image-paste.js" defer></script>
   <script src="./subject-blur.js" defer></script>
   <script src="./image-finish.js" defer></script>
+  <script src="./inpaint-core.js" defer></script>
+  <script src="./object-removal.js" defer></script>
   <script src="./background-removal.js" defer></script>
 </head>
 <body>
@@ -137,6 +152,22 @@
     <button id="background-cancel" type="button" hidden>Cancel</button>
     <button id="background-dismiss" type="button">Dismiss</button>
   </aside>
+  <dialog id="object-dialog" aria-labelledby="object-title">
+    <h2 id="object-title">Remove Object (AI)</h2>
+    <p>Brush over one object, its outline and shadow. Preview the fill, then Apply. This edits the selected image layer and keeps your original underneath.</p>
+    <div class="object-tools">
+      <label>Brush <input id="object-brush" type="range" min="4" max="300" step="1" value="32"> <output id="object-brush-value">32</output> px</label>
+      <label><input id="object-erase" type="checkbox"> Erase marks</label>
+      <button id="object-undo" type="button">Undo last mark</button><button id="object-clear" type="button">Clear marks</button>
+      <button id="object-preview" type="button">Preview removal</button>
+      <label><input id="object-original" type="checkbox"> Show original</label>
+    </div>
+    <p id="object-view" role="status" aria-live="polite"></p>
+    <canvas id="object-canvas" width="640" height="360" tabindex="0" aria-label="Brush over the object to remove"></canvas>
+    <p><small>Best for small areas with surrounding background. Preview shows this layer only. Files stay on this device. MI-GAN · <a href="./ai/ATTRIBUTION.md" target="_blank" rel="noopener">Model credits and licences</a></small></p>
+    <p id="object-error" role="status" aria-live="polite"></p>
+    <div class="ai-effect-actions object-actions"><button id="object-cancel" type="button">Cancel</button><button id="object-apply" type="button">Apply removal</button></div>
+  </dialog>
   <dialog id="upscale-dialog" aria-labelledby="upscale-title">
     <h2 id="upscale-title">Enhance Resolution 2× (AI)</h2>
     <p id="upscale-dimensions"></p>

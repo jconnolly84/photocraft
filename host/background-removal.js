@@ -2,7 +2,7 @@
 (() => {
   const get=id=>document.getElementById(id),frame=get('editor'),panel=get('background-tools'),status=get('background-status'),cancel=get('background-cancel');
   let worker,pending,task,sequence=0;
-  const show=message=>{status.textContent=message;panel.hidden=false;};
+  const show=message=>{status.textContent=message;panel.hidden=false;task?.progress?.(message);};
   function stop(reason) {
     worker?.terminate();worker=null;
     if(task)task.cancelled=reason;
@@ -28,6 +28,7 @@
       if(data.png){message.png=new Uint8Array(data.png).buffer;transfer.push(message.png);}
       if(data.backdrop){message.backdrop=new Uint8Array(data.backdrop).buffer;transfer.push(message.backdrop);}
       if(data.alpha){message.alpha=new Uint8Array(data.alpha).buffer;transfer.push(message.alpha);}
+      if(data.paint){message.paint=new Uint8Array(data.paint).buffer;transfer.push(message.paint);}
       worker.postMessage(message,transfer);
     });
   }
@@ -173,10 +174,15 @@
   async function run(source) {
     if(task)throw 'An AI tool is already running.';
     const mode=source.mode||'remove';
-    if(!['remove','select','blur','replace','refine','enhance','upscale'].includes(mode))throw 'Unknown image tool.';
+    if(!['remove','select','blur','replace','refine','enhance','upscale','inpaint'].includes(mode))throw 'Unknown image tool.';
     if(!ArrayBuffer.isView(source.png)||source.png.byteLength>80*1024*1024)throw 'Image is too large for local background removal.';
     const own={};task=own;cancel.hidden=false;show(mode==='enhance'?'Preparing the enhancement preview...':'Preparing the cutout on this PC...');
     try {
+      if(mode==='inpaint') {
+        const pixels=await window.photocraftObjectRemoval(source,{own,request,cancel:stop,isActive:()=>task===own,show});
+        if(own.cancelled)throw own.cancelled;const realm=frame.contentWindow.Uint8Array;
+        return{alpha:new realm(0),background:new realm(pixels)};
+      }
       if(mode==='upscale') {
         show('Preparing a 2× AI detail preview locally...');
         const preview=await request({type:'upscale',png:source.png,preview:true});if(own.cancelled)throw own.cancelled;
