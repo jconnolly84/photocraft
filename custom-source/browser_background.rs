@@ -25,10 +25,10 @@ pub fn start(doc: &Document, layer: u64, revision: u64) -> Result<(), String> {
 }
 pub fn start_tool(doc: &Document, layer: u64, revision: u64, mode: &str) -> Result<(), String> {
     if BUSY.with(Cell::get) {return Err("Another AI tool is already running. Use Cancel to stop it.".into());}
-    if !matches!(mode,"remove"|"select"|"blur"|"replace") {return Err("Unknown AI tool".into());}
+    if !matches!(mode,"remove"|"select"|"blur"|"replace"|"refine"|"enhance") {return Err("Unknown image tool".into());}
     if matches!(mode,"blur"|"replace") && doc.bounds().size().area()>16_777_216 {return Err("AI backgrounds support canvases up to 16 megapixels. Resize the document first.".into());}
     let target = doc.layer(photocraft_doc::LayerId(layer)).ok_or("select an image layer")?;
-    if matches!(mode,"blur"|"replace") && target.clipped {return Err("Release this image's clipping mask before changing its background.".into());}
+    if matches!(mode,"blur"|"replace"|"enhance") && target.clipped {return Err("Release this image's clipping mask before using this tool.".into());}
     let surface = target.surface().ok_or("The image is not rendered yet. Try again after it loads.")?;
     let area = surface.content_bounds().intersect(&doc.bounds());
     let count = u64::from(area.width()) * u64::from(area.height());
@@ -39,8 +39,16 @@ pub fn start_tool(doc: &Document, layer: u64, revision: u64, mode: &str) -> Resu
     let png = photocraft_codecs::encode(&image, photocraft_codecs::Format::Png, &EncodeOptions::default()).map_err(|e| e.to_string())?;
     let (host, function) = parent_function(if mode=="remove" {"photocraftRemoveBackground"} else {"photocraftSubjectTool"})?;
     let object = Object::new();
+    if matches!(mode,"refine"|"enhance") {
+        if let Some(mask) = target.mask.as_ref().filter(|m| m.enabled) {
+            let mut values = Vec::new();
+            mask.values_into(area, &mut values);
+            let bytes:Vec<u8> = values.into_iter().map(|v|(v.clamp(0.0,1.0)*255.0).round() as u8).collect();
+            Reflect::set(&object,&JsValue::from_str("mask"),&Uint8Array::from(bytes.as_slice())).map_err(error)?;
+        }
+    }
     Reflect::set(&object, &JsValue::from_str("png"), &Uint8Array::from(png.as_slice())).map_err(error)?;
-    for (key,value) in [("canvasWidth",doc.bounds().width() as i32),("canvasHeight",doc.bounds().height() as i32),("left",area.x0),("top",area.y0)] {
+    for (key,value) in [("width",area.width() as i32),("height",area.height() as i32),("canvasWidth",doc.bounds().width() as i32),("canvasHeight",doc.bounds().height() as i32),("left",area.x0),("top",area.y0)] {
         Reflect::set(&object,&JsValue::from_str(key),&JsValue::from_f64(value as f64)).map_err(error)?;
     }
     Reflect::set(&object,&JsValue::from_str("mode"),&JsValue::from_str(mode)).map_err(error)?;
@@ -54,8 +62,8 @@ pub fn start_tool(doc: &Document, layer: u64, revision: u64, mode: &str) -> Resu
             let value = JsFuture::from(promise).await.map_err(error)?;
             let alpha = if mode=="remove" {value.clone()} else {Reflect::get(&value,&JsValue::from_str("alpha")).map_err(error)?};
             let bytes: Uint8Array = alpha.dyn_into().map_err(|_| "Invalid model mask bytes")?;
-            if u64::from(bytes.length()) != count {return Err("Model mask dimensions do not match the image".into());}
-            let background = if matches!(mode.as_str(),"blur"|"replace") {
+            if mode!="enhance" && u64::from(bytes.length()) != count {return Err("Model mask dimensions do not match the image".into());}
+            let background = if matches!(mode.as_str(),"blur"|"replace"|"enhance") {
                 let bytes: Uint8Array = Reflect::get(&value,&JsValue::from_str("background")).map_err(error)?.dyn_into().map_err(|_| "Invalid background pixels")?;
                 if bytes.length() as u64 > 16_777_216*4 {return Err("Background is too large".into());}
                 Some(bytes.to_vec())
@@ -85,6 +93,8 @@ pub fn poll(app: &mut PhotocraftApp, ctx: &egui::Context) {
             Ok(()) => (match mode {"select"=>"Subject selected locally. Use selection tools to refine it.",
                 "blur"=>"Background blurred. The original image is kept hidden underneath. Undo restores it.",
                 "replace"=>"Background replaced. Subject and background are separate layers. Undo restores the original.",
+                "refine"=>"Cutout refined. Original pixels are unchanged. Undo restores the previous mask.",
+                "enhance"=>"Image enhanced on a new layer. The original is hidden underneath. Undo restores it.",
                 _=>"Background removed locally. Undo restores the original."}.to_string(), true),
             Err(reason) => (format!("AI tool did not change the document: {reason}"), false),
         };

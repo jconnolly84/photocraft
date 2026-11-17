@@ -10,6 +10,9 @@ pub fn apply_subject_tool(s: &mut Session, document: u64, revision: u64, layer: 
     let id = photocraft_doc::LayerId(layer);
     let source = st.doc.layer(id).ok_or(EngineError::NoLayer(id))?;
     check(&st.doc, source).map_err(EngineError::Other)?;
+    if matches!(mode,"refine"|"enhance") {
+        return apply_image_finish(s, document, revision, layer, bounds, mode, alpha, background);
+    }
     let label = match mode {"select" => "Select Subject (AI)", "blur" => "Blur Background (AI)",
         "replace" => "Replace Background (AI)", _ => return Err(EngineError::Other("Unknown AI tool".into()))};
     if mode != "select" && source.clipped {
@@ -84,6 +87,40 @@ pub fn apply_subject_tool(s: &mut Session, document: u64, revision: u64, layer: 
     })
 }
 
+/// Refinement replaces the mask (allowing an outward shift); enhancement makes
+/// a raster copy while preserving the original Smart Object and its mask.
+fn apply_image_finish(s:&mut Session,document:u64,revision:u64,layer:u64,bounds:[i32;4],mode:&str,alpha:Vec<u8>,pixels:Option<Vec<u8>>)->Result<()> {
+    let st=s.active().ok_or(EngineError::NoDocument)?;
+    if st.doc.id.0!=document||st.revision!=revision{return Err(EngineError::Other("The document changed while the image tool was open. Try again.".into()));}
+    let id=photocraft_doc::LayerId(layer);let source=st.doc.layer(id).ok_or(EngineError::NoLayer(id))?;check(&st.doc,source).map_err(EngineError::Other)?;
+    let [x,y,w,h]=bounds;
+    if w<=0||h<=0||w as u64*h as u64>16_777_216{return Err(EngineError::Other("Invalid image dimensions".into()));}
+    let area=Rect::new(x,y,x.saturating_add(w),y.saturating_add(h));
+    if area.intersect(&st.doc.bounds())!=area{return Err(EngineError::Other("Image is outside the canvas".into()));}
+    let refining=mode=="refine";
+    if refining && (alpha.len() as u64!=w as u64*h as u64||!alpha.iter().any(|v|*v>0)) {return Err(EngineError::Other("The refined cutout is empty or invalid".into()));}
+    if !refining && (source.clipped||pixels.as_ref().is_none_or(|p|p.len() as u64!=w as u64*h as u64*4)){return Err(EngineError::Other("Invalid enhanced image or clipped layer".into()));}
+    s.edit(if refining {"Refine Cutout"}else{"Auto Enhance"},move|doc,active|{
+        if refining {
+            let mut mask=crate::commands::mask_at_depth(LayerMask::hide_all(),doc.depth)?;
+            let data:Vec<f32>=alpha.into_iter().map(|v|v as f32/255.0).collect();mask.surface.write_region(area,&data);
+            if let Some(previous)=doc.layer(id).and_then(|l|l.mask.as_ref()).filter(|m|m.enabled){mask.feather=previous.feather;}
+            crate::extra_cmds::background_to_layer_for_mask(doc,id);
+            doc.layer_mut(id).ok_or(EngineError::NoLayer(id))?.mask=Some(mask);
+        }else{
+            let original=doc.layer(id).ok_or(EngineError::NoLayer(id))?.clone();let mut enhanced=original.duplicate();
+            enhanced.name=format!("{} — Enhanced",original.name);enhanced.locks=Default::default();enhanced.visible=true;
+            let mut raster=Layer::raster("",doc.pixel_format());let surface=raster.surface_mut().unwrap();let channels=surface.channels();let format=doc.pixel_format();let bytes=pixels.as_ref().unwrap();let mut row=vec![0.0;w as usize*channels];
+            for yy in 0..h as usize {for (xx,p) in bytes[yy*w as usize*4..(yy+1)*w as usize*4].chunks_exact(4).enumerate(){
+                photocraft_raster::from_rgba_into(&format,[p[0] as f32/255.0,p[1] as f32/255.0,p[2] as f32/255.0,p[3] as f32/255.0],&mut row[xx*channels..(xx+1)*channels]);
+            }surface.write_region(Rect::new(x,y+yy as i32,x+w,y+yy as i32+1),&row);}
+            enhanced.content=raster.content;enhanced.psd_blocks.clear();enhanced.fill_cache=None;
+            doc.layer_mut(id).unwrap().visible=false;*active=Some(doc.insert_above(Some(id),enhanced));
+        }
+        Ok(())
+    })
+}
+
 #[cfg(test)]
 mod school_subject_tools_tests {
     use super::*;
@@ -122,6 +159,28 @@ mod school_subject_tools_tests {
         assert!(apply_subject_tool(&mut s,d,r,l,[0,0,2,1],"blur",vec![255],Some(vec![])).is_err());
         assert!(apply_subject_tool(&mut s,d,r,l,[0,0,1,1],"replace",vec![255],Some(vec![0;4])).is_err());
         assert!(apply_subject_tool(&mut s,d,r,l,[0,0,1,1],"select",vec![0],None).is_err());
+        assert_eq!(s.active().unwrap().doc.layers,before);
+    }
+    #[test] fn refinement_can_expand_mask_without_rewriting_pixels_and_undo_restores_mask() {
+        let mut s=fixture();let(d,r,l)=args(&s);
+        apply_subject_tool(&mut s,d,r,l,[0,0,4,3],"refine",vec![128;12],None).unwrap();
+        let before=s.active().unwrap().doc.layers.clone();let(d,r,l)=args(&s);
+        apply_subject_tool(&mut s,d,r,l,[0,0,4,3],"refine",vec![255;12],None).unwrap();
+        assert_eq!(s.active().unwrap().doc.layers.len(),1);
+        assert_eq!(s.active().unwrap().doc.layers[0].mask.as_ref().unwrap().value(1,1),1.0);
+        assert_eq!(s.active().unwrap().doc.layers[0].content,before[0].content);
+        s.execute("edit.undo",json!({})).unwrap();assert_eq!(s.active().unwrap().doc.layers,before);
+    }
+    #[test] fn enhancement_preserves_source_mask_and_pixels_with_one_undo() {
+        let mut s=fixture();let(d,r,l)=args(&s);
+        apply_subject_tool(&mut s,d,r,l,[0,0,4,3],"refine",vec![128;12],None).unwrap();
+        let before=s.active().unwrap().doc.layers.clone();let(d,r,l)=args(&s);
+        apply_subject_tool(&mut s,d,r,l,[0,0,4,3],"enhance",vec![],Some([30,80,160,128].repeat(12))).unwrap();
+        let st=s.active().unwrap();assert_eq!(st.doc.layers.len(),2);assert!(!st.doc.layers[0].visible);
+        assert_eq!(st.doc.layers[1].mask,before[0].mask);
+        assert!((st.doc.layers[1].surface().unwrap().rgba(1,1)[0]-30.0/255.0).abs()<0.01);
+        s.execute("edit.undo",json!({})).unwrap();assert_eq!(s.active().unwrap().doc.layers,before);
+        let(d,r,l)=args(&s);assert!(apply_subject_tool(&mut s,d,r,l,[0,0,4,3],"enhance",vec![],Some(vec![0;4])).is_err());
         assert_eq!(s.active().unwrap().doc.layers,before);
     }
 }
