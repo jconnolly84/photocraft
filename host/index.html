@@ -47,7 +47,13 @@
     #ai-effect-error { color: #ffba85; min-height: 1.3em; }
     .ai-effect-actions { display: flex; justify-content: flex-end; gap: 10px; }
     #ai-effect-apply { background: #0569d7; border-color: #429aff; padding: 7px 18px; }
-    #image-finish-dialog { width: min(620px,92vw); max-height: 90vh; overflow: auto; padding: 20px; background: #252525; color: #eee; border: 1px solid #777; border-radius: 10px; }
+    #image-finish-dialog, #upscale-dialog { width: min(620px,92vw); max-height: 90vh; overflow: auto; padding: 20px; background: #252525; color: #eee; border: 1px solid #777; border-radius: 10px; }
+    #upscale-dialog::backdrop { background: #000a; }
+    #upscale-dialog h2 { margin-top: 0; }
+    #upscale-dialog label { display: block; margin: 12px 0; }
+    #upscale-preview { display: block; max-width: 100%; margin: 14px auto; background: repeating-conic-gradient(#777 0 25%,#555 0 50%) 0/16px 16px; border: 1px solid #888; }
+    #upscale-view { color: #d9ff43; font-weight: 600; }
+    #upscale-apply { background: #0569d7; border-color: #429aff; padding: 7px 18px; }
     #image-finish-dialog::backdrop { background: #000a; }
     #image-finish-dialog h2 { margin-top: 0; }
     #image-finish-dialog label { display: block; margin: 12px 0; }
@@ -131,6 +137,17 @@
     <button id="background-cancel" type="button" hidden>Cancel</button>
     <button id="background-dismiss" type="button">Dismiss</button>
   </aside>
+  <dialog id="upscale-dialog" aria-labelledby="upscale-title">
+    <h2 id="upscale-title">Enhance Resolution 2× (AI)</h2>
+    <p id="upscale-dimensions"></p>
+    <p>Creates a new Smart Object with double-resolution source pixels, keeping its size and position in your advert. Enlarge the new layer with Transform to use the extra detail. Your original layer is kept underneath.</p>
+    <label><input id="upscale-original" type="checkbox"> Compare with a smooth enlargement of the original</label>
+    <p id="upscale-view" role="status" aria-live="polite">Preview: AI 2×</p>
+    <canvas id="upscale-preview" width="320" height="240" aria-label="Centre detail at 100% of the upscaled image"></canvas>
+    <p>This is the centre detail at 100% output size. Apply processes the whole image. AI can improve edges but cannot recover exact missing details. Files stay on this device.</p>
+    <p><small>QuickSRNet Small · <a href="./ai/ATTRIBUTION.md" target="_blank" rel="noopener">Model credits and licences</a></small></p>
+    <div class="ai-effect-actions"><button id="upscale-cancel" type="button">Cancel</button><button id="upscale-apply" type="button">Apply 2× upscale</button></div>
+  </dialog>
   <dialog id="image-finish-dialog" aria-labelledby="image-finish-title">
     <h2 id="image-finish-title">Finish image</h2>
     <p id="image-finish-description"></p>

@@ -49,6 +49,8 @@ if b'photocraftRemoveBackground' in wasm:
     features.append('ai_background')
 if b'photocraftSubjectTool' in wasm:
     features.append('ai_subject_tools')
+if b'upscaled-2x.png' in wasm:
+    features.append('ai_upscale_2x')
 if b'photocraft.history-layers-default.v1' in wasm:
     features.append('history_layers_default')
 if b'photocraftStartAction' in wasm:

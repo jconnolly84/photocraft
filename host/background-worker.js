@@ -2,10 +2,12 @@
 import * as ort from './ai/vendor/ort-1.31.1/ort.wasm.min.mjs';
 import './subject-blur.js?v=__SUBJECT_BLUR_VERSION__';
 import './image-finish.js?v=__IMAGE_FINISH_VERSION__';
+import './upscale-core.js?v=__UPSCALE_CORE_VERSION__';
 ort.env.wasm.numThreads = 1;
 ort.env.wasm.proxy = false;
 ort.env.wasm.wasmPaths = new URL('./ai/vendor/ort-1.31.1/', import.meta.url).href;
 let session;
+let upscaleSession;
 const notify = message => self.postMessage({type: 'progress', message});
 const hex = bytes => Array.from(new Uint8Array(bytes), x => x.toString(16).padStart(2, '0')).join('');
 async function checksum(bytes) {return hex(await crypto.subtle.digest('SHA-256', bytes));}
@@ -143,9 +145,34 @@ async function finishImage({png,mode,options,alpha}) {
     return{background:globalThis.photocraftImageFinish.enhance(pixels,stats,options.strength).buffer,width:w,height:h};
   } finally {image.close();}
 }
+async function upscaleImage({png,preview}) {
+  imageBytes(png);
+  const image=await createImageBitmap(new Blob([png],{type:'image/png'}));
+  try {
+    const {width,height}=image;globalThis.photocraftUpscale.validate(width,height);
+    if(!upscaleSession){
+      notify('Loading the 94 KB upscaling model. Images stay on this device...');
+      const base=new URL('./ai/models/quicksrnet-small-2x/',import.meta.url),url=new URL('model.onnx',base);
+      const cache=globalThis.caches?await caches.open('photocraft-upscale-v1').catch(()=>null):null;
+      const stored=await cache?.match(url),response=stored||await fetch(url);if(!response.ok)throw Error('The upscaling model could not download. Try again online.');
+      const bytes=await response.arrayBuffer();
+      if(bytes.byteLength!==93836||await checksum(bytes)!=='14cb9aed5d9f4093c9de413c38d76234dab298a7a0bb311867dd45ccc21eac7d'){await cache?.delete(url);throw Error('Upscaling model checksum failed. Please retry.');}
+      if(!stored)await cache?.put(url,new Response(bytes)).catch(()=>{});
+      upscaleSession=await ort.InferenceSession.create(bytes,{executionProviders:['wasm'],graphOptimizationLevel:'all'});
+    }
+    const canvas=new OffscreenCanvas(width,height),c=canvas.getContext('2d',{willReadFrequently:true});c.drawImage(image,0,0);
+    const data=c.getImageData(0,0,width,height).data;
+    const result=await globalThis.photocraftUpscale.tiled(data,width,height,async input=>{
+      const tensor=new ort.Tensor('float32',input,[1,3,128,128]);let output;
+      try {output=await upscaleSession.run({image:tensor});const value=output.upscaled;if(!value||value.dims.join(',')!=='1,3,256,256')throw Error('Unexpected upscaling model shape');return new Float32Array(value.data);}
+      finally{tensor.dispose();if(output)for(const value of Object.values(output))value.dispose();}
+    },(done,total)=>notify(`${preview?'Preparing AI detail preview':'Upscaling locally'}: ${Math.round(done/total*100)}% (${done}/${total} tiles)`),preview?globalThis.photocraftUpscale.previewRegion(width,height):undefined);
+    return{background:result.pixels.buffer,width:result.width,height:result.height,left:result.left,top:result.top,sourceWidth:width,sourceHeight:height};
+  }finally{image.close();}
+}
 self.onmessage=async ({data})=>{
   try {
-    const result=data.type==='finish'?await finishImage(data):data.type==='effect'?await makeBackground(data):await inferMask(data.png);
+    const result=data.type==='upscale'?await upscaleImage(data):data.type==='finish'?await finishImage(data):data.type==='effect'?await makeBackground(data):await inferMask(data.png);
     const transfer=result.alpha?[result.alpha]:[result.background];
     self.postMessage({type:'result',id:data.id,...result},transfer);
   }catch(error){self.postMessage({type:'error',id:data.id,message:error.message||String(error)});}

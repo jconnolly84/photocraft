@@ -1,0 +1,8 @@
+{
+  "name": "QuickSRNet Small 2x",
+  "scale": 2,
+  "tile": 128,
+  "halo": 4,
+  "bytes": 93836,
+  "sha256": "14cb9aed5d9f4093c9de413c38d76234dab298a7a0bb311867dd45ccc21eac7d"
+}

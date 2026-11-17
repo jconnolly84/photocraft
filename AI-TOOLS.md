@@ -24,6 +24,44 @@ invent detail. Use the mask brush for local corrections. A resized preview is
 approximate; Apply processes the original image dimensions.
 Save an editable project to keep the layers after closing the browser.
 
+## Enhance Resolution 2× (AI)
+
+Select an unlocked raster image or placed Smart Object and choose
+**Image → Enhance Resolution 2× (AI)…**. A centre-detail preview compares the
+real AI result with a smooth 2× enlargement. Apply processes the whole captured
+image and inserts a new embedded Smart Object above the hidden original.
+
+The embedded PNG has twice the width and height of the captured layer pixels.
+The new layer starts at the same position and displayed size, preserving the
+advert layout and its existing mask. Use Transform to enlarge the new layer,
+or Edit Contents to open the double-resolution image. The canvas size and
+the resolution of an ordinary canvas export are unchanged by this operation.
+This avoids discarding the extra pixels in a raster layer at the old size.
+Undo restores the original in one step. Preserve the Smart Object by saving
+an editable project; a flattened PNG/JPEG only keeps the exported canvas pixels.
+
+The input limit is **1,048,576 pixels** (one megapixel), with at most 4096 pixels
+per side, producing up to four megapixels. Oversized inputs are refused before model work, without a silent
+resize. Transparency is resized separately from RGB; the model does not infer
+new transparency or re-run background removal. Existing document-space masks
+and blending settings are retained on the new Smart Object.
+
+QuickSRNet Small 2x is a 93,836-byte, BSD-3-Clause model from Qualcomm's official
+checkpoint, converted to ONNX with the learned weights unchanged. The source,
+licence, notices, hashes and reproducible export live in the repository. The
+model is checksum-verified and downloaded only when this tool is selected;
+it shares the existing ONNX runtime and local worker. 128-pixel tiles with a
+4-pixel halo bound inference memory and avoid tile seams. Progress and Cancel
+stay available. Preview comparison reuses pixels and does not run inference.
+Cancel before Apply skips whole-image processing. Editing/switching documents
+while it runs rejects the stale result. No images are uploaded.
+
+Verification: `node scripts/test_upscale.cjs` (tiling/alpha/limits),
+`python scripts/test_upscale_model.py` (actual model and tile/whole agreement),
+and `upscaling_keeps_true_double_resolution_and_layout_with_one_undo` in the
+native subject-tool tests. AI can improve reconstructed edges; results vary,
+and it cannot recover exact details missing from the original.
+
 ## Responsiveness and privacy
 
 All four tools share the existing BiRefNet Lite 512 model and one lazily started

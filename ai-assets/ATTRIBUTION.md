@@ -1,4 +1,4 @@
-# Local background-removal components
+# Local image-processing components
 
 - BiRefNet Lite: Peng Zheng and co-authors, MIT licence. Official model:
   https://huggingface.co/ZhengPeng7/BiRefNet_lite
@@ -12,6 +12,13 @@
 - ONNX Runtime Web 1.31.1: Microsoft, MIT licence. Official npm package and
   https://github.com/microsoft/onnxruntime/tree/v1.31.1.
   Its licence and ThirdPartyNotices.txt remain beside the runtime files.
+- QuickSRNet Small 2x: Qualcomm Innovation Center, BSD-3-Clause.
+  Official checkpoint and source: https://github.com/quic/aimet-model-zoo/tree/1bd2bf5b17cdda9251437c444009b29e1a25054b/aimet_zoo_torch/quicksrnet
+  The checkpoint was converted to float32 ONNX without changing learned weights.
+  Export script: scripts/export_upscale_model.py in this site's source repository.
+  Checkpoint, model and source revisions/hashes are recorded in
+  models/quicksrnet-small-2x/provenance.json and manifest.json. Its original
+  licence, notices and model source remain beside the exported weights.
 
 The model and runtime load on demand. Only these static files are fetched.
 Student images and generated masks stay in the browser. Model caches contain

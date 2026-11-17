@@ -146,13 +146,45 @@
       render();dialog.showModal();
     });
   }
+  async function chooseUpscale(own,source,result) {
+    const image=await createImageBitmap(new Blob([source.png],{type:'image/png'}));
+    if(task!==own||own.cancelled){image.close();throw own.cancelled||'Upscaling cancelled.';}
+    const dialog=get('upscale-dialog'),preview=get('upscale-preview'),original=get('upscale-original');
+    preview.width=result.width;preview.height=result.height;original.checked=false;
+    get('upscale-dimensions').textContent=`Source: ${result.sourceWidth} × ${result.sourceHeight} → ${result.sourceWidth*2} × ${result.sourceHeight*2} pixels.`;
+    const baseline=document.createElement('canvas');baseline.width=result.width;baseline.height=result.height;
+    const bc=baseline.getContext('2d',{willReadFrequently:true});bc.imageSmoothingEnabled=true;bc.imageSmoothingQuality='high';
+    bc.drawImage(image,result.left,result.top,result.width/2,result.height/2,0,0,result.width,result.height);
+    const before=bc.getImageData(0,0,result.width,result.height).data,after=new Uint8ClampedArray(result.background);
+    let closed=false;
+    const render=()=>{if(closed)return;const c=preview.getContext('2d'),p=c.createImageData(result.width,result.height);p.data.set(original.checked?before:after);
+      if(source.mask){const alpha=new Uint8Array(source.mask);for(let y=0;y<result.height;y++)for(let x=0;x<result.width;x++){
+        const at=(y*result.width+x)*4+3,m=(result.top+Math.floor(y/2))*result.sourceWidth+result.left+Math.floor(x/2);p.data[at]=Math.round(p.data[at]*alpha[m]/255);
+      }}
+      get('upscale-view').textContent=original.checked?'Preview: Original — smooth 2× enlargement':'Preview: AI 2× — enhanced resolution';c.putImageData(p,0,0);
+    };
+    return new Promise((resolve,reject)=>{
+      const finish=reason=>{if(closed)return;closed=true;own.abort=null;image.close();original.oninput=null;original.onchange=null;get('upscale-apply').onclick=null;get('upscale-cancel').onclick=null;dialog.oncancel=null;if(dialog.open)dialog.close();reason?reject(reason):resolve();};
+      own.abort=finish;original.oninput=render;original.onchange=render;
+      get('upscale-apply').onclick=()=>finish();get('upscale-cancel').onclick=()=>finish('Upscaling cancelled. The original was kept.');dialog.oncancel=e=>{e.preventDefault();finish('Upscaling cancelled. The original was kept.');};
+      render();dialog.showModal();
+    });
+  }
   async function run(source) {
     if(task)throw 'An AI tool is already running.';
     const mode=source.mode||'remove';
-    if(!['remove','select','blur','replace','refine','enhance'].includes(mode))throw 'Unknown image tool.';
+    if(!['remove','select','blur','replace','refine','enhance','upscale'].includes(mode))throw 'Unknown image tool.';
     if(!ArrayBuffer.isView(source.png)||source.png.byteLength>80*1024*1024)throw 'Image is too large for local background removal.';
     const own={};task=own;cancel.hidden=false;show(mode==='enhance'?'Preparing the enhancement preview...':'Preparing the cutout on this PC...');
     try {
+      if(mode==='upscale') {
+        show('Preparing a 2× AI detail preview locally...');
+        const preview=await request({type:'upscale',png:source.png,preview:true});if(own.cancelled)throw own.cancelled;
+        await chooseUpscale(own,source,preview);if(own.cancelled)throw own.cancelled;
+        show('Upscaling the full image locally...');
+        const result=await request({type:'upscale',png:source.png,preview:false});
+        const realm=frame.contentWindow.Uint8Array;return{alpha:new realm(0),background:new realm(result.background)};
+      }
       if(mode==='enhance'||mode==='refine') {
         const mask=source.mask?{alpha:source.mask,width:source.width,height:source.height}:mode==='enhance'?null:await request({type:'mask',png:source.png});
         if(own.cancelled)throw own.cancelled;

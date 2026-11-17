@@ -1,11 +1,5 @@
 {
-  "ATTRIBUTION.md": "30a427ea6881f9cf836a8ee47018689dd77f681bfd41378367938ab2c009ccac",
-  "vendor/ort-1.31.1/LICENSE": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
-  "vendor/ort-1.31.1/ort-wasm-simd-threaded.mjs": "30ed0b5cd1182ede931fea448afb567d4dc705ec957af09f108a2be5f770dac3",
-  "vendor/ort-1.31.1/ort-wasm-simd-threaded.wasm": "4b884c203b0fa48d057be3332c65513ff85aa3c5bddd6946acc0fab7ecda001d",
-  "vendor/ort-1.31.1/ort.wasm.min.mjs": "c21d9c326d453a4a61398270c804d5979e118540597cb0c07f7b3d64e6098234",
-  "vendor/ort-1.31.1/package.json": "81fa53b6bf23c91d6fdd37dac97ebec558048bbd14ccbcc02e54fb47d3c1c699",
-  "vendor/ort-1.31.1/ThirdPartyNotices.txt": "143764b952fdb1a7c69ce653bfba74a7744d6a8a573bfb73e235fba356c83de3",
+  "ATTRIBUTION.md": "c503b4666348d406590cd6144bf6e21039a3c456ce25be9647eef588d48c7637",
   "models/birefnet-lite-512-962e679/config.json": "561965f7aa366c48b95ab1c24220d59a718df4025c2ecb359dd5736ceb49e912",
   "models/birefnet-lite-512-962e679/LICENSE": "b5cd5faac84a0acb8a6bdb8aeef0919e528891be27216df84eab398d7c8bd2aa",
   "models/birefnet-lite-512-962e679/manifest.json": "2b3e05c394b5fe48ecb1ff484ac96c50cf01f66f35cbd46506528bdb812bbdbb",
@@ -13,5 +7,17 @@
   "models/birefnet-lite-512-962e679/model.part-02.bin": "33f84ba302fcc11f1743af9291cabe7a0df81dac42809c53f9e09b5ad7da0bbb",
   "models/birefnet-lite-512-962e679/model.part-03.bin": "bbdefefea3c7d86011d3ae21aa13ed27153c62271636d74adbb753108855ad3a",
   "models/birefnet-lite-512-962e679/preprocessor_config.json": "a79663b311d8404dfb329f7b45bc9f970a0c155aeedae8ac15b6b77d76789613",
-  "models/birefnet-lite-512-962e679/README.md": "8e4338e9e368804ae5b6fc5b7e634e405f84c7879c405f738904f47b368399cf"
+  "models/birefnet-lite-512-962e679/README.md": "8e4338e9e368804ae5b6fc5b7e634e405f84c7879c405f738904f47b368399cf",
+  "models/quicksrnet-small-2x/LICENSE": "3d7f7841688ba4c69892be4df5dd7a2c114d3ac8b2113953a6e3a35d7f86c657",
+  "models/quicksrnet-small-2x/manifest.json": "da6812074eeebe4e0b2515244a0a9b4b0c0f9a9f5443bf0df74d551e14da71e7",
+  "models/quicksrnet-small-2x/model-source.py": "d79642c3d2580631f11e027ce3817d34551ce154d789812cf04aa0d4a5ccc189",
+  "models/quicksrnet-small-2x/model.onnx": "14cb9aed5d9f4093c9de413c38d76234dab298a7a0bb311867dd45ccc21eac7d",
+  "models/quicksrnet-small-2x/NOTICE.txt": "70905c309d9beb01f03e6ddc5040fcfa93fc6f2dc4c27929b9fdfd4033f1bce9",
+  "models/quicksrnet-small-2x/provenance.json": "25beee9dda468564554faf6c68676a9b43cdd30fe58374fab2f682d6e953aaba",
+  "vendor/ort-1.31.1/LICENSE": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
+  "vendor/ort-1.31.1/ort-wasm-simd-threaded.mjs": "30ed0b5cd1182ede931fea448afb567d4dc705ec957af09f108a2be5f770dac3",
+  "vendor/ort-1.31.1/ort-wasm-simd-threaded.wasm": "4b884c203b0fa48d057be3332c65513ff85aa3c5bddd6946acc0fab7ecda001d",
+  "vendor/ort-1.31.1/ort.wasm.min.mjs": "c21d9c326d453a4a61398270c804d5979e118540597cb0c07f7b3d64e6098234",
+  "vendor/ort-1.31.1/package.json": "81fa53b6bf23c91d6fdd37dac97ebec558048bbd14ccbcc02e54fb47d3c1c699",
+  "vendor/ort-1.31.1/ThirdPartyNotices.txt": "143764b952fdb1a7c69ce653bfba74a7744d6a8a573bfb73e235fba356c83de3"
 }

@@ -1,0 +1,12 @@
+{
+  "checkpoint_url": "https://github.com/quic/aimet-model-zoo/releases/download/phase_2_january_artifacts/quicksrnet_small_2x_checkpoint_float32.pth.tar",
+  "checkpoint_sha256": "d95d70f1d2366cb9c28d99f8c7aa5bb07e1ffeaf5d7e30d9c66ab0fa28c6d0f8",
+  "source_commit": "1bd2bf5b17cdda9251437c444009b29e1a25054b",
+  "source_url": "https://github.com/quic/aimet-model-zoo/blob/1bd2bf5b17cdda9251437c444009b29e1a25054b/aimet_zoo_torch/quicksrnet/model/models.py",
+  "license": "BSD-3-Clause",
+  "export": "scripts/export_upscale_model.py",
+  "changes": "Float32 ONNX format conversion only; original learned weights retained.",
+  "torch_version": "2.9.0+cpu",
+  "onnx_version": "1.20.1",
+  "max_export_error": 1.9073486328125e-06
+}

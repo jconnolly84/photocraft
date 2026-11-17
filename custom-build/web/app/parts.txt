@@ -1,2 +1,2 @@
 photocraft-parts 1
-photocraft-web-ea1cee14f867d9ca.part-aa
+photocraft-web-94efa9aea4c777eb.part-aa
