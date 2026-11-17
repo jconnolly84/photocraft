@@ -62,7 +62,7 @@ with cutout.open('a',encoding='utf-8',newline='\n') as file:
     file.write((root/'custom-source/subject_tools.rs').read_text(encoding='utf-8'))
 replace(cutout,'    specs\n}', '''    for (id,label) in [("select.subjectAI","Select Subject (AI)"),
         ("layer.backgroundBlurAI","Blur Background (AI)"),("layer.replaceBackgroundAI","Replace Background (AI)"),
-        ("layer.refineCutout","Refine Cutout"),("image.autoEnhanceLocal","Auto Enhance"),("image.upscaleAI","Enhance Resolution 2× (AI)")] {
+        ("layer.refineCutout","Refine Cutout"),("image.autoEnhanceLocal","Auto Enhance"),("image.upscaleAI","Enhance Resolution 2× (AI)"),("image.removeObjectAI","Remove Object (AI)")] {
         specs.push(CommandSpec {id,label,menu:&[],shortcut:None,params:"{}",enabled,
             run: |_,_| Err(EngineError::Other("This AI tool requires the browser host".into())),journal:true});
     }
@@ -75,13 +75,13 @@ replace(source/'crates/ui-egui/src/services.rs',
 replace(app/'src/web.rs','        browser_remove_background: Some(Box::new(crate::browser_background::start)),',
     '        browser_remove_background: Some(Box::new(crate::browser_background::start)),\n        browser_subject_tool: Some(Box::new(crate::browser_background::start_tool)),')
 replace(commands,'matches!(id, "layer.removeBackground" | "layer.removeBackgroundQuick")',
-    'matches!(id, "layer.removeBackground" | "layer.removeBackgroundQuick" | "select.subjectAI" | "layer.backgroundBlurAI" | "layer.replaceBackgroundAI" | "layer.refineCutout" | "image.autoEnhanceLocal" | "image.upscaleAI")')
+    'matches!(id, "layer.removeBackground" | "layer.removeBackgroundQuick" | "select.subjectAI" | "layer.backgroundBlurAI" | "layer.replaceBackgroundAI" | "layer.refineCutout" | "image.autoEnhanceLocal" | "image.upscaleAI" | "image.removeObjectAI")')
 replace(commands,'        if id == "layer.removeBackground" && self.services.browser_remove_background.is_some() {',
-    '''        if matches!(id,"select.subjectAI"|"layer.backgroundBlurAI"|"layer.replaceBackgroundAI"|"layer.refineCutout"|"image.autoEnhanceLocal"|"image.upscaleAI") && self.services.browser_subject_tool.is_some() {
+    '''        if matches!(id,"select.subjectAI"|"layer.backgroundBlurAI"|"layer.replaceBackgroundAI"|"layer.refineCutout"|"image.autoEnhanceLocal"|"image.upscaleAI"|"image.removeObjectAI") && self.services.browser_subject_tool.is_some() {
             self.session.precheck(id,&params).map_err(|e|e.to_string())?;
             let st=self.session.active().ok_or("no document")?;
             let layer=st.active_layer.ok_or("select an image layer")?;
-            let mode=match id {"select.subjectAI"=>"select","layer.backgroundBlurAI"=>"blur","layer.refineCutout"=>"refine","image.autoEnhanceLocal"=>"enhance","image.upscaleAI"=>"upscale",_=>"replace"};
+            let mode=match id {"select.subjectAI"=>"select","layer.backgroundBlurAI"=>"blur","layer.refineCutout"=>"refine","image.autoEnhanceLocal"=>"enhance","image.upscaleAI"=>"upscale","image.removeObjectAI"=>"inpaint",_=>"replace"};
             self.services.browser_subject_tool.as_mut().unwrap()(&st.doc,layer.0,st.revision,mode)?;
             return Ok(json!({"subjectTool":"running locally"}));
         }
@@ -94,5 +94,6 @@ replace(source/'crates/ui-egui/src/menu_catalog.rs',
     (&["Select"], "Refine Cutout…", None, "layer.refineCutout"),
     (&["Image"], "Auto Enhance…", None, "image.autoEnhanceLocal"),
     (&["Image"], "Enhance Resolution 2× (AI)…", None, "image.upscaleAI"),
+    (&["Image"], "Remove Object (AI)…", None, "image.removeObjectAI"),
     (&["Select"], "Remove Background", None, "layer.removeBackground"),''')
 print('Added shared Select Subject, Background Blur and Replace Background browser commands.')

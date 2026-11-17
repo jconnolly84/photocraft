@@ -11,7 +11,7 @@ pub fn apply_subject_tool(s: &mut Session, document: u64, revision: u64, layer: 
     let source = st.doc.layer(id).ok_or(EngineError::NoLayer(id))?;
     check(&st.doc, source).map_err(EngineError::Other)?;
     if mode=="upscale" {return apply_upscale(s,document,revision,layer,bounds,background);}
-    if matches!(mode,"refine"|"enhance") {
+    if matches!(mode,"refine"|"enhance"|"inpaint") {
         return apply_image_finish(s, document, revision, layer, bounds, mode, alpha, background);
     }
     let label = match mode {"select" => "Select Subject (AI)", "blur" => "Blur Background (AI)",
@@ -122,9 +122,11 @@ fn apply_image_finish(s:&mut Session,document:u64,revision:u64,layer:u64,bounds:
     let area=Rect::new(x,y,x.saturating_add(w),y.saturating_add(h));
     if area.intersect(&st.doc.bounds())!=area{return Err(EngineError::Other("Image is outside the canvas".into()));}
     let refining=mode=="refine";
+    let removing=mode=="inpaint";
+    if removing && w as u64*h as u64>4_194_304{return Err(EngineError::Other("Object removal supports images up to 4 megapixels".into()));}
     if refining && (alpha.len() as u64!=w as u64*h as u64||!alpha.iter().any(|v|*v>0)) {return Err(EngineError::Other("The refined cutout is empty or invalid".into()));}
     if !refining && (source.clipped||pixels.as_ref().is_none_or(|p|p.len() as u64!=w as u64*h as u64*4)){return Err(EngineError::Other("Invalid enhanced image or clipped layer".into()));}
-    s.edit(if refining {"Refine Cutout"}else{"Auto Enhance"},move|doc,active|{
+    s.edit(if refining {"Refine Cutout"}else if removing {"Remove Object (AI)"}else{"Auto Enhance"},move|doc,active|{
         if refining {
             let mut mask=crate::commands::mask_at_depth(LayerMask::hide_all(),doc.depth)?;
             let data:Vec<f32>=alpha.into_iter().map(|v|v as f32/255.0).collect();mask.surface.write_region(area,&data);
@@ -133,7 +135,7 @@ fn apply_image_finish(s:&mut Session,document:u64,revision:u64,layer:u64,bounds:
             doc.layer_mut(id).ok_or(EngineError::NoLayer(id))?.mask=Some(mask);
         }else{
             let original=doc.layer(id).ok_or(EngineError::NoLayer(id))?.clone();let mut enhanced=original.duplicate();
-            enhanced.name=format!("{} — Enhanced",original.name);enhanced.locks=Default::default();enhanced.visible=true;
+            enhanced.name=format!("{} — {}",original.name,if removing {"Object removed"}else{"Enhanced"});enhanced.locks=Default::default();enhanced.visible=true;
             let mut raster=Layer::raster("",doc.pixel_format());let surface=raster.surface_mut().unwrap();let channels=surface.channels();let format=doc.pixel_format();let bytes=pixels.as_ref().unwrap();let mut row=vec![0.0;w as usize*channels];
             for yy in 0..h as usize {for (xx,p) in bytes[yy*w as usize*4..(yy+1)*w as usize*4].chunks_exact(4).enumerate(){
                 photocraft_raster::from_rgba_into(&format,[p[0] as f32/255.0,p[1] as f32/255.0,p[2] as f32/255.0,p[3] as f32/255.0],&mut row[xx*channels..(xx+1)*channels]);
@@ -154,6 +156,16 @@ mod school_subject_tools_tests {
         s
     }
     fn args(s:&Session)->(u64,u64,u64) {let st=s.active().unwrap();(st.doc.id.0,st.revision,st.active_layer.unwrap().0)}
+    #[test] fn object_removal_keeps_original_and_undo_restores_layers() {
+        let mut s=fixture();let before=s.active().unwrap().doc.layers.clone();let(d,r,l)=args(&s);
+        apply_subject_tool(&mut s,d,r,l,[1,1,2,1],"inpaint",vec![],Some([40,80,160,255].repeat(2))).unwrap();
+        let st=s.active().unwrap();assert_eq!(st.doc.layers.len(),2);assert!(!st.doc.layers[0].visible);
+        let mut original=st.doc.layers[0].clone();original.visible=true;assert_eq!(original,before[0]);
+        assert!(st.doc.layers[1].name.ends_with("Object removed"));assert!((st.doc.layers[1].surface().unwrap().rgba(1,1)[0]-40.0/255.0).abs()<0.01);
+        s.execute("edit.undo",json!({})).unwrap();assert_eq!(s.active().unwrap().doc.layers,before);
+        let(d,r,l)=args(&s);assert!(apply_subject_tool(&mut s,d,r+1,l,[1,1,2,1],"inpaint",vec![],Some(vec![0;8])).is_err());
+        assert!(apply_subject_tool(&mut s,d,r,l,[1,1,2,1],"inpaint",vec![],Some(vec![0;4])).is_err());assert_eq!(s.active().unwrap().doc.layers,before);
+    }
     #[test] fn upscaling_keeps_true_double_resolution_and_layout_with_one_undo() {
         let mut s=fixture();let before=s.active().unwrap().doc.layers.clone();let(d,r,l)=args(&s);
         apply_subject_tool(&mut s,d,r,l,[1,1,2,1],"upscale",vec![],Some([30,80,160,255].repeat(8))).unwrap();
