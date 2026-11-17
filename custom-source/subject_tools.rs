@@ -10,6 +10,7 @@ pub fn apply_subject_tool(s: &mut Session, document: u64, revision: u64, layer: 
     let id = photocraft_doc::LayerId(layer);
     let source = st.doc.layer(id).ok_or(EngineError::NoLayer(id))?;
     check(&st.doc, source).map_err(EngineError::Other)?;
+    if mode=="upscale" {return apply_upscale(s,document,revision,layer,bounds,background);}
     if matches!(mode,"refine"|"enhance") {
         return apply_image_finish(s, document, revision, layer, bounds, mode, alpha, background);
     }
@@ -87,6 +88,29 @@ pub fn apply_subject_tool(s: &mut Session, document: u64, revision: u64, layer: 
     })
 }
 
+/// Keep genuine 2× source pixels inside a Smart Object, without changing the
+/// advert's layout or canvas. A plain raster at the old size would discard them.
+fn apply_upscale(s:&mut Session,document:u64,revision:u64,layer:u64,bounds:[i32;4],pixels:Option<Vec<u8>>)->Result<()> {
+    let st=s.active().ok_or(EngineError::NoDocument)?;
+    if st.doc.id.0!=document||st.revision!=revision{return Err(EngineError::Other("The document changed while upscaling. Try again.".into()));}
+    let id=photocraft_doc::LayerId(layer);let original=st.doc.layer(id).ok_or(EngineError::NoLayer(id))?;check(&st.doc,original).map_err(EngineError::Other)?;
+    let [x,y,w,h]=bounds;
+    if w<=0||h<=0||w as u64*h as u64>1_048_576||original.clipped||pixels.as_ref().is_none_or(|p|p.len() as u64!=w as u64*h as u64*16){return Err(EngineError::Other("Invalid 2× image, clipped layer or image over 1 megapixel".into()));}
+    let area=Rect::new(x,y,x.saturating_add(w),y.saturating_add(h));if area.intersect(&st.doc.bounds())!=area{return Err(EngineError::Other("Image is outside the canvas".into()));}
+    let image=photocraft_codecs::Image::from_u8(w as u32*2,h as u32*2,photocraft_codecs::ChannelLayout::Rgba,pixels.unwrap()).map_err(|e|EngineError::Other(e.to_string()))?;
+    let png=photocraft_codecs::encode(&image,photocraft_codecs::Format::Png,&photocraft_codecs::EncodeOptions::default()).map_err(|e|EngineError::Other(e.to_string()))?;
+    s.edit("Enhance Resolution 2× (AI)",move|doc,active|{
+        let original=doc.layer(id).ok_or(EngineError::NoLayer(id))?.clone();let mut enhanced=original.duplicate();
+        enhanced.name=format!("{} — 2× AI",original.name);enhanced.locks=Default::default();enhanced.visible=true;
+        enhanced.content=LayerContent::Smart(photocraft_doc::SmartObject::new(
+            photocraft_doc::SmartSource::Embedded{file_name:"upscaled-2x.png".into(),bytes:std::sync::Arc::new(png)},
+            photocraft_doc::Affine{m:[0.5,0.0,0.0,0.5,x as f64,y as f64]},None));
+        enhanced.psd_blocks.clear();enhanced.fill_cache=None;
+        if !crate::smart_cmds::refresh_layer(doc,&mut enhanced)? {return Err(EngineError::Other("Could not render the upscaled Smart Object".into()));}
+        doc.layer_mut(id).unwrap().visible=false;*active=Some(doc.insert_above(Some(id),enhanced));Ok(())
+    })
+}
+
 /// Refinement replaces the mask (allowing an outward shift); enhancement makes
 /// a raster copy while preserving the original Smart Object and its mask.
 fn apply_image_finish(s:&mut Session,document:u64,revision:u64,layer:u64,bounds:[i32;4],mode:&str,alpha:Vec<u8>,pixels:Option<Vec<u8>>)->Result<()> {
@@ -130,6 +154,21 @@ mod school_subject_tools_tests {
         s
     }
     fn args(s:&Session)->(u64,u64,u64) {let st=s.active().unwrap();(st.doc.id.0,st.revision,st.active_layer.unwrap().0)}
+    #[test] fn upscaling_keeps_true_double_resolution_and_layout_with_one_undo() {
+        let mut s=fixture();let before=s.active().unwrap().doc.layers.clone();let(d,r,l)=args(&s);
+        apply_subject_tool(&mut s,d,r,l,[1,1,2,1],"upscale",vec![],Some([30,80,160,255].repeat(8))).unwrap();
+        let st=s.active().unwrap();assert_eq!(st.doc.layers.len(),2);assert!(!st.doc.layers[0].visible);
+        let LayerContent::Smart(sm)=&st.doc.layers[1].content else{panic!("must keep the higher resolution source")};
+        assert_eq!(sm.transform.m,[0.5,0.0,0.0,0.5,1.0,1.0]);
+        let photocraft_doc::SmartSource::Embedded{bytes,..}=&sm.source else{panic!("source must stay embedded")};
+        // PNG IHDR stores dimensions, independently of the placed display size.
+        assert_eq!(u32::from_be_bytes(bytes[16..20].try_into().unwrap()),4);assert_eq!(u32::from_be_bytes(bytes[20..24].try_into().unwrap()),2);
+        assert!(sm.cache.is_some());
+        let mut original=st.doc.layers[0].clone();original.visible=true;assert_eq!(original,before[0]);
+        s.execute("edit.undo",json!({})).unwrap();assert_eq!(s.active().unwrap().doc.layers,before);
+        let(d,r,l)=args(&s);assert!(apply_subject_tool(&mut s,d,r+1,l,[1,1,2,1],"upscale",vec![],Some(vec![0;32])).is_err());
+        assert!(apply_subject_tool(&mut s,d,r,l,[1,1,2,1],"upscale",vec![],Some(vec![0;4])).is_err());assert_eq!(s.active().unwrap().doc.layers,before);
+    }
     #[test] fn subject_selection_changes_no_layers_and_undo_restores_it() {
         let mut s=fixture();let before=s.active().unwrap().doc.layers.clone();let(d,r,l)=args(&s);
         apply_subject_tool(&mut s,d,r,l,[1,1,2,1],"select",vec![255,0],None).unwrap();

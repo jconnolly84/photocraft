@@ -25,13 +25,14 @@ pub fn start(doc: &Document, layer: u64, revision: u64) -> Result<(), String> {
 }
 pub fn start_tool(doc: &Document, layer: u64, revision: u64, mode: &str) -> Result<(), String> {
     if BUSY.with(Cell::get) {return Err("Another AI tool is already running. Use Cancel to stop it.".into());}
-    if !matches!(mode,"remove"|"select"|"blur"|"replace"|"refine"|"enhance") {return Err("Unknown image tool".into());}
+    if !matches!(mode,"remove"|"select"|"blur"|"replace"|"refine"|"enhance"|"upscale") {return Err("Unknown image tool".into());}
     if matches!(mode,"blur"|"replace") && doc.bounds().size().area()>16_777_216 {return Err("AI backgrounds support canvases up to 16 megapixels. Resize the document first.".into());}
     let target = doc.layer(photocraft_doc::LayerId(layer)).ok_or("select an image layer")?;
-    if matches!(mode,"blur"|"replace"|"enhance") && target.clipped {return Err("Release this image's clipping mask before using this tool.".into());}
+    if matches!(mode,"blur"|"replace"|"enhance"|"upscale") && target.clipped {return Err("Release this image's clipping mask before using this tool.".into());}
     let surface = target.surface().ok_or("The image is not rendered yet. Try again after it loads.")?;
     let area = surface.content_bounds().intersect(&doc.bounds());
     let count = u64::from(area.width()) * u64::from(area.height());
+    if mode=="upscale" && count>1_048_576 {return Err("2× AI upscaling supports image layers up to 1 megapixel. Use it on a smaller source image.".into());}
     if area.is_empty() || count > 16_777_216 {return Err("AI background removal supports image layers up to 16 megapixels. Resize the image first.".into());}
     let mut pixels = vec![[0u8; 4]; count as usize];
     surface.read_rgba8_into(area, &mut pixels);
@@ -39,7 +40,7 @@ pub fn start_tool(doc: &Document, layer: u64, revision: u64, mode: &str) -> Resu
     let png = photocraft_codecs::encode(&image, photocraft_codecs::Format::Png, &EncodeOptions::default()).map_err(|e| e.to_string())?;
     let (host, function) = parent_function(if mode=="remove" {"photocraftRemoveBackground"} else {"photocraftSubjectTool"})?;
     let object = Object::new();
-    if matches!(mode,"refine"|"enhance") {
+    if matches!(mode,"refine"|"enhance"|"upscale") {
         if let Some(mask) = target.mask.as_ref().filter(|m| m.enabled) {
             let mut values = Vec::new();
             mask.values_into(area, &mut values);
@@ -62,8 +63,8 @@ pub fn start_tool(doc: &Document, layer: u64, revision: u64, mode: &str) -> Resu
             let value = JsFuture::from(promise).await.map_err(error)?;
             let alpha = if mode=="remove" {value.clone()} else {Reflect::get(&value,&JsValue::from_str("alpha")).map_err(error)?};
             let bytes: Uint8Array = alpha.dyn_into().map_err(|_| "Invalid model mask bytes")?;
-            if mode!="enhance" && u64::from(bytes.length()) != count {return Err("Model mask dimensions do not match the image".into());}
-            let background = if matches!(mode.as_str(),"blur"|"replace"|"enhance") {
+            if !matches!(mode.as_str(),"enhance"|"upscale") && u64::from(bytes.length()) != count {return Err("Model mask dimensions do not match the image".into());}
+            let background = if matches!(mode.as_str(),"blur"|"replace"|"enhance"|"upscale") {
                 let bytes: Uint8Array = Reflect::get(&value,&JsValue::from_str("background")).map_err(error)?.dyn_into().map_err(|_| "Invalid background pixels")?;
                 if bytes.length() as u64 > 16_777_216*4 {return Err("Background is too large".into());}
                 Some(bytes.to_vec())
@@ -95,6 +96,7 @@ pub fn poll(app: &mut PhotocraftApp, ctx: &egui::Context) {
                 "replace"=>"Background replaced. Subject and background are separate layers. Undo restores the original.",
                 "refine"=>"Cutout refined. Original pixels are unchanged. Undo restores the previous mask.",
                 "enhance"=>"Image enhanced on a new layer. The original is hidden underneath. Undo restores it.",
+                "upscale"=>"2× AI source created in a new Smart Object. Size and position are kept; transform it to enlarge. Undo restores the original.",
                 _=>"Background removed locally. Undo restores the original."}.to_string(), true),
             Err(reason) => (format!("AI tool did not change the document: {reason}"), false),
         };
