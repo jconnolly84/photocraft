@@ -129,6 +129,7 @@
     const options=()=>({shift:Number(edge.value),feather:Number(feather.value),strength:Number(strength.value)});
     const render=()=>{scheduled=false;if(closed)return;const o=options(),c=preview.getContext('2d'),out=c.createImageData(w,h);out.data.set(pixels.data);
       get('image-edge-value').value=String(o.shift);get('image-feather-value').value=String(o.feather);get('image-strength-value').value=String(o.strength);
+      get('image-finish-view').textContent=original.checked?'Preview: Original — before changes':refining?'Preview: Refined cutout':`Preview: Enhanced — ${o.strength}% strength`;
       if(refining){const alpha=original.checked?small:window.photocraftImageFinish.refine(small,w,h,{shift:o.shift*scale,feather:o.feather*scale});for(let i=0;i<alpha.length;i++)out.data[i*4+3]=Math.round(out.data[i*4+3]*alpha[i]/255);}
       else {
         if(!original.checked)out.data.set(window.photocraftImageFinish.enhance(pixels.data,stats,o.strength));
@@ -137,9 +138,10 @@
       c.putImageData(out,0,0);
     };
     return new Promise((resolve,reject)=>{
-      const finish=(result,reason)=>{if(closed)return;closed=true;own.abort=null;image.close();for(const el of [edge,feather,strength,original])el.oninput=null;apply.onclick=null;get('image-finish-cancel').onclick=null;dialog.oncancel=null;if(dialog.open)dialog.close();reason?reject(reason):resolve(result);};
+      const finish=(result,reason)=>{if(closed)return;closed=true;own.abort=null;image.close();for(const el of [edge,feather,strength,original])el.oninput=null;original.onchange=null;apply.onclick=null;get('image-finish-cancel').onclick=null;dialog.oncancel=null;if(dialog.open)dialog.close();reason?reject(reason):resolve(result);};
       own.abort=reason=>finish(null,reason);
       for(const el of [edge,feather,strength,original])el.oninput=()=>{if(!scheduled){scheduled=true;requestAnimationFrame(render);}};
+      original.onchange=original.oninput;
       apply.onclick=()=>finish(options());get('image-finish-cancel').onclick=()=>finish(null,'Image tool cancelled. The original was kept.');dialog.oncancel=e=>{e.preventDefault();finish(null,'Image tool cancelled. The original was kept.');};
       render();dialog.showModal();
     });

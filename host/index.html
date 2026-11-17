@@ -55,6 +55,7 @@
     #image-finish-dialog input[type=range] { width: min(340px,65vw); }
     #image-finish-preview { display: block; max-width: 100%; margin: 14px auto; background: repeating-conic-gradient(#777 0 25%,#555 0 50%) 0/16px 16px; border: 1px solid #888; }
     #image-finish-error { color: #ffba85; min-height: 1.3em; }
+    #image-finish-view { margin: 10px 0 4px; color: #d9ff43; font-weight: 600; }
     #image-finish-apply { background: #0569d7; border-color: #429aff; padding: 7px 18px; }
     #tutorial-dialog { width: min(1280px,96vw); height: 92vh; max-width: 96vw; max-height: 96vh; padding: 0; color: #f4f5f8; background: #11131b; border: 1px solid #626779; border-radius: 14px; }
     #tutorial-dialog[open] { display: flex; flex-direction: column; }
@@ -139,8 +140,9 @@
     </div>
     <div id="image-enhance-fields"><label>Enhancement strength: <output id="image-strength-value">65</output>%<br><input id="image-strength" type="range" min="0" max="100" step="1" value="65"></label></div>
     <label><input id="image-finish-original" type="checkbox"> Show original for comparison</label>
+    <p id="image-finish-view" role="status" aria-live="polite">Preview: Enhanced</p>
     <canvas id="image-finish-preview" width="480" height="270" aria-label="Image finishing preview"></canvas>
-    <p>The preview shows this layer only. Full-size processing happens on Apply. Files stay on this device.</p>
+    <p>The checkbox changes this preview only. The main canvas changes when you press Apply. Some images need very little correction. Files stay on this device.</p>
     <p id="image-finish-error" role="status" aria-live="polite"></p>
     <div class="ai-effect-actions"><button id="image-finish-cancel" type="button">Cancel</button><button id="image-finish-apply" type="button">Apply</button></div>
   </dialog>
